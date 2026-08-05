@@ -1,0 +1,17 @@
+{
+  "name": "countycore-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CountyCore backend and frontend host",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/smoke/api.smoke.test.js",
+    "prisma:generate": "prisma generate"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0"
+  },
+  "devDependencies": {
+    "prisma": "^5.22.0"
+  }
+}

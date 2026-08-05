@@ -1,0 +1,6 @@
+/countycore-backend
+    /api-gateway
+    /user-service
+    /transaction-service
+    /data-service
+    /common

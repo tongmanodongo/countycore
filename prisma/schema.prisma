@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model SessionRecord {
+  token     String   @id
+  payload   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("session_records")
+}
+
+model LedgerRecord {
+  ledgerId  String   @id
+  payload   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("ledger_records")
+}
+
+model AuditRecord {
+  id        String   @id
+  payload   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("audit_records")
+}
+
+model OtpRecord {
+  id        String   @id
+  payload   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("otp_records")
+}
+
+model NotificationRecord {
+  id        String   @id
+  payload   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notification_records")
+}
+
+model PaymentEventRecord {
+  id        String   @id
+  payload   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("payment_event_records")
+}
+
+model AuthChallengeRecord {
+  challengeId String   @id
+  payload     Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("auth_challenge_records")
+}
+
+model AppStateRecord {
+  id        Int      @id @default(1)
+  payload   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("app_state_records")
+}
