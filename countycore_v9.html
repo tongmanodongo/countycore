@@ -257,6 +257,30 @@ async function renderPageAsync(page, role) {
 // if one is valid, instead of always falling through to the login screen.
 // ════════════════════════════════════════════════════════════════════════
 async function checkExistingSession() {
+  const token = getBackendToken();
+  if (!token) {
+    showLoginScreen();
+    return;
+  }
+  try {
+    const res = await fetch('/api/session', {
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    if (!res.ok) throw new Error('No active backend session');
+    const payload = await res.json();
+    currentUser = payload.user || null;
+    if (currentUser) {
+      await loadRolePolicyFromBackend();
+      showApp();
+      await loadStateFromBackend();
+      render();
+      scheduleStateSync('session');
+      return;
+    }
+  } catch (error) {
+    console.warn('CountyCore session restoration failed:', error);
+  }
+  localStorage.removeItem('countycore_session_token');
   showLoginScreen();
 }
 
@@ -268,6 +292,10 @@ let currentUser = null;
 let loginStep = 'select'; // select | password | twofa
 let pendingUser = null;
 let pendingOTP = null; // the real OTP generated for the current login attempt
+let pendingChallengeId = null;
+let pendingOtpHint = null;
+let pendingLoginIdentifier = '';
+let pendingLoginPassword = '';
 
 // Bootstrap accounts only. All other role accounts (Finance Manager,
 // Revenue Officer, Cashier, Inspector, Enforcement Officer, etc.) are
@@ -786,6 +814,29 @@ async function syncStateToBackend(reason) {
   }
 }
 
+async function loadRolePolicyFromBackend() {
+  try {
+    const res = await fetch('/api/rbac/roles');
+    if (!res.ok) return;
+    const payload = await res.json();
+    applyRolePolicy(payload.roles || {});
+  } catch (error) {
+    console.warn('CountyCore RBAC policy load failed:', error);
+  }
+}
+
+function applyRolePolicy(policy) {
+  if (!policy || typeof policy !== 'object') return;
+  Object.keys(policy).forEach(function(roleKey) {
+    const rolePolicy = policy[roleKey];
+    if (!rolePolicy || !roles[roleKey] || typeof rolePolicy !== 'object') return;
+    roles[roleKey] = Object.assign({}, roles[roleKey], rolePolicy, {
+      pages: rolePolicy.pages || roles[roleKey].pages,
+      canCreate: rolePolicy.canCreate || roles[roleKey].canCreate,
+    });
+  });
+}
+
 async function loadStateFromBackend() {
   const token = getBackendToken();
   if (!token) return;
@@ -831,35 +882,64 @@ function showLoginScreen() {
 }
 
 function selectUser(id) {
-  pendingUser = USERS.find(u => u.id === id);
+  pendingUser = USERS.find(u => u.id === id) || null;
   loginStep = 'password';
   renderLoginStep();
 }
 
-function submitPassword() {
-  const val = document.getElementById('pwInput')?.value || '';
+function clearAuthError() {
   const err = document.getElementById('loginErr');
-  // TODO(backend): replace this local USERS-array check with a real
-  // authentication call to your backend once it's wired up.
-  if (val !== pendingUser.password) {
+  if (err) {
+    err.style.display = 'none';
+    err.textContent = '';
+  }
+}
+
+function setAuthError(message) {
+  const err = document.getElementById('loginErr');
+  if (err) {
     err.style.display = 'block';
-    err.textContent = 'Incorrect password. Please try again.';
-    document.getElementById('pwInput').value = '';
+    err.textContent = message;
+  }
+}
+
+async function submitPassword() {
+  const identifier = (document.getElementById('loginUserInput')?.value || '').trim();
+  const password = document.getElementById('pwInput')?.value || '';
+  clearAuthError();
+  if (!identifier || !password) {
+    setAuthError('Please enter your username and password.');
     return;
   }
-  if (pendingUser.twoFA) { generateOTP(); loginStep = 'twofa'; renderLoginStep(); return; }
-  completeLogin();
+  pendingLoginIdentifier = identifier;
+  pendingLoginPassword = password;
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: identifier, password: password }),
+    });
+    const payload = await res.json().catch(function() { return {}; });
+    if (!res.ok) {
+      throw new Error(payload.error || 'Authentication failed');
+    }
+    if (payload.requiresOtp) {
+      pendingChallengeId = payload.challengeId || null;
+      pendingOtpHint = payload.debugCode ? 'Debug code: ' + payload.debugCode : 'Use the OTP sent to ' + (payload.maskedRecipient || 'your phone');
+      pendingUser = { id: identifier, name: identifier };
+      loginStep = 'twofa';
+      renderLoginStep();
+      return;
+    }
+    localStorage.setItem('countycore_session_token', payload.token || '');
+    currentUser = { ...(payload.user || {}), id: payload.user?.id || identifier };
+    await completeLogin(payload.user || currentUser);
+  } catch (error) {
+    setAuthError(error.message || 'Authentication failed.');
+  }
 }
 
-// TODO(backend): swap this for a real SMS/email OTP dispatch (e.g. Africa's
-// Talking, already integrated under Settings → Integrations) and verify the
-// code server-side instead of comparing against a client-held value.
-function generateOTP(){
-  pendingOTP = String(Math.floor(100000 + Math.random()*900000));
-  console.info('[CountyCore prototype] OTP for '+(pendingUser?pendingUser.name:'')+': '+pendingOTP+' (this will be sent by SMS once the backend is connected)');
-}
-
-function submitOTP() {
+async function submitOTP() {
   const val = (document.getElementById('otpInput')?.value || '').trim();
   const err = document.getElementById('otpErr');
   if (!/^\d{6}$/.test(val)) {
@@ -867,18 +947,31 @@ function submitOTP() {
     err.textContent = 'Please enter exactly 6 digits.';
     return;
   }
-  if (val !== pendingOTP) {
+  try {
+    const res = await fetch('/api/auth/otp/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challengeId: pendingChallengeId, code: val }),
+    });
+    const payload = await res.json().catch(function() { return {}; });
+    if (!res.ok) {
+      throw new Error(payload.error || 'OTP verification failed');
+    }
+    localStorage.setItem('countycore_session_token', payload.token || '');
+    await completeLogin(payload.user || null);
+  } catch (error) {
     err.style.display = 'block';
-    err.textContent = 'Incorrect code. Please try again or resend.';
+    err.textContent = error.message || 'Incorrect code. Please try again or resend.';
     document.getElementById('otpInput').value = '';
-    return;
   }
-  completeLogin();
 }
 
-function resendOTP(){
-  generateOTP();
-  showToastLogin('A new code has been sent.');
+async function resendOTP(){
+  if (!pendingLoginIdentifier || !pendingLoginPassword) {
+    showToastLogin('Please sign in again to request a fresh code.');
+    return;
+  }
+  await submitPassword();
 }
 
 function submitForgotPassword() {
@@ -893,38 +986,35 @@ function submitForgotPassword() {
 }
 
 async function ensureBackendSession() {
-  if (getBackendToken() || !currentUser) return;
+  const token = getBackendToken();
+  if (!token || !currentUser) return;
   try {
-    const res = await fetch('/api/session/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user: {
-          id: currentUser.id,
-          name: currentUser.name,
-          role: currentUser.role,
-          avatar: currentUser.avatar,
-          badge: currentUser.badge,
-          sub: currentUser.sub,
-        },
-      }),
+    const res = await fetch('/api/session', {
+      headers: { Authorization: 'Bearer ' + token },
     });
     if (!res.ok) {
       const payload = await res.json().catch(function() { return {}; });
-      throw new Error(payload.error || 'Session creation failed');
+      throw new Error(payload.error || 'Session verification failed');
     }
     const data = await res.json();
-    if (data && data.token) {
-      localStorage.setItem('countycore_session_token', data.token);
+    if (data && data.user) {
+      currentUser = { ...currentUser, ...data.user };
     }
   } catch (error) {
-    console.warn('CountyCore backend session init failed:', error);
+    console.warn('CountyCore backend session verification failed:', error);
   }
 }
 
-async function completeLogin() {
-  currentUser = pendingUser;
-  showToastLogin(`Welcome back, ${currentUser.name.split(' ')[0]} 👋`);
+async function completeLogin(userPayload) {
+  const profile = userPayload || currentUser || pendingUser || null;
+  if (!profile) return;
+  currentUser = { ...(pendingUser || {}), ...(profile || {}) };
+  pendingUser = null;
+  pendingChallengeId = null;
+  pendingOtpHint = null;
+  pendingOTP = null;
+  await loadRolePolicyFromBackend();
+  showToastLogin(`Welcome back, ${String(currentUser.name || 'User').split(' ')[0]} 👋`);
   showApp();
   await ensureBackendSession();
   await loadStateFromBackend();
@@ -934,7 +1024,7 @@ async function completeLogin() {
 
 function renderLoginStep() {
   const box = document.getElementById('loginBox');
-  if (loginStep === 'select') {
+  if (loginStep === 'select' || loginStep === 'password') {
     box.innerHTML = `
       <div style="text-align:center;margin-bottom:var(--space-6)">
         <div style="width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--color-primary),var(--color-blue));color:white;display:grid;place-items:center;margin:0 auto var(--space-3)">
@@ -942,41 +1032,20 @@ function renderLoginStep() {
         </div>
         <h2 style="font-size:var(--text-xl);font-weight:900;letter-spacing:-.02em">CountyCore</h2>
         <p style="color:var(--color-text-muted);font-size:var(--text-sm);margin-top:.3rem">Departments &amp; Revenue Management System</p>
-        <p style="color:var(--color-text-faint);font-size:var(--text-xs);margin-top:.2rem">Select your account to continue</p>
+        <p style="color:var(--color-text-faint);font-size:var(--text-xs);margin-top:.2rem">Use your backend credentials to sign in</p>
       </div>
-      <div style="display:grid;gap:var(--space-2)">
-        ${USERS.map(u => `
-          <button onclick="selectUser('${u.id}')" style="display:flex;align-items:center;gap:var(--space-3);padding:.9rem 1rem;border-radius:var(--radius-lg);background:var(--color-surface-offset);border:1px solid var(--color-border);cursor:pointer;text-align:left;transition:all var(--transition);width:100%" onmouseenter="this.style.background='var(--color-surface-2)';this.style.borderColor='var(--color-primary)'" onmouseleave="this.style.background='var(--color-surface-offset)';this.style.borderColor='var(--color-border)'">
-            <div style="width:40px;height:40px;border-radius:50%;background:${roleColor(u.role)};color:white;display:grid;place-items:center;font-weight:700;font-size:var(--text-sm);flex-shrink:0">${u.avatar}</div>
-            <div style="flex:1;min-width:0">
-              <div style="font-weight:600;font-size:var(--text-sm)">${u.name}</div>
-              <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:.15rem">${u.badge} · ${u.sub}</div>
-            </div>
-            <div style="font-size:var(--text-xs);color:var(--color-text-faint)">${u.twoFA ? '🔐' : ''}</div>
-          </button>`).join('')}
-      </div>
-      <p style="text-align:center;font-size:var(--text-xs);color:var(--color-text-faint);margin-top:var(--space-4)">Prototype · All credentials shown below each role for testing</p>`;
-  }
-  else if (loginStep === 'password') {
-    const u = pendingUser;
-    box.innerHTML = `
-      <button onclick="loginStep='select';renderLoginStep()" style="display:flex;align-items:center;gap:.4rem;font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-5);padding:.4rem .6rem;border-radius:var(--radius-md);background:var(--color-surface-offset)">← Back</button>
-      <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-6)">
-        <div style="width:52px;height:52px;border-radius:50%;background:${roleColor(u.role)};color:white;display:grid;place-items:center;font-weight:700;font-size:var(--text-base);flex-shrink:0">${u.avatar}</div>
-        <div>
-          <div style="font-weight:700;font-size:var(--text-base)">${u.name}</div>
-          <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:.2rem">${u.badge}</div>
-        </div>
+      <div class="field" style="margin-bottom:var(--space-4)">
+        <label>Username / User ID</label>
+        <input id="loginUserInput" class="input" type="text" placeholder="e.g. admin01" value="${pendingLoginIdentifier}" onkeydown="if(event.key==='Enter')submitPassword()" autofocus>
       </div>
       <div class="field" style="margin-bottom:var(--space-4)">
         <label>Password</label>
-        <input id="pwInput" class="input" type="password" placeholder="Enter your password" onkeydown="if(event.key==='Enter')submitPassword()" autofocus>
-        <div style="font-size:var(--text-xs);color:var(--color-text-faint);margin-top:.4rem">Hint: <code style="background:var(--color-surface-offset);padding:.1rem .35rem;border-radius:4px">${u.password}</code></div>
+        <input id="pwInput" class="input" type="password" placeholder="Enter your password" onkeydown="if(event.key==='Enter')submitPassword()">
       </div>
       <div id="loginErr" style="display:none;background:color-mix(in srgb,var(--color-error) 12%,transparent);color:var(--color-error);padding:var(--space-3);border-radius:var(--radius-md);font-size:var(--text-sm);margin-bottom:var(--space-3)"></div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="submitPassword()">Continue →</button>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="submitPassword()">Sign In →</button>
       <button onclick="loginStep='forgot';renderLoginStep()" style="width:100%;text-align:center;margin-top:var(--space-3);font-size:var(--text-xs);color:var(--color-primary);padding:var(--space-1);background:none;border:none;cursor:pointer">Forgot Password?</button>
-      <p style="text-align:center;font-size:var(--text-xs);color:var(--color-text-faint);margin-top:var(--space-2)">Last login: ${u.last}</p>`;
+      <p style="text-align:center;font-size:var(--text-xs);color:var(--color-text-faint);margin-top:var(--space-3)">Demo users include admin01, fin01, off01, pay01. Use the backend credential values shown in the RBAC setup.</p>`;
   }
   else if (loginStep === 'forgot') {
     const u = pendingUser;
@@ -1008,22 +1077,22 @@ function renderLoginStep() {
       </div>`;
   }
   else if (loginStep === 'twofa') {
-    const u = pendingUser;
+    const u = pendingUser || { name: 'your account' };
     box.innerHTML = `
       <div style="text-align:center;margin-bottom:var(--space-5)">
         <div style="font-size:2rem;margin-bottom:var(--space-2)">🔐</div>
         <h3 style="font-weight:700">Two-Factor Authentication</h3>
-        <p style="color:var(--color-text-muted);font-size:var(--text-sm);margin-top:.4rem">A 6-digit code has been sent to the phone registered for <strong>${u.name}</strong></p>
+        <p style="color:var(--color-text-muted);font-size:var(--text-sm);margin-top:.4rem">A 6-digit code has been issued for <strong>${u.name}</strong></p>
       </div>
       <div class="field" style="margin-bottom:var(--space-4)">
         <label>Enter 6-digit OTP</label>
         <input id="otpInput" class="input" type="text" maxlength="6" placeholder="• • • • • •" style="letter-spacing:.4em;text-align:center;font-size:1.4rem;font-weight:700" onkeydown="if(event.key==='Enter')submitOTP()" autofocus>
-        <div style="font-size:var(--text-xs);color:var(--color-text-faint);margin-top:.4rem">Prototype preview — SMS delivery isn't wired up yet, so the code is logged to the browser console for testing: <code style="background:var(--color-surface-offset);padding:.1rem .35rem;border-radius:4px">${pendingOTP}</code></div>
+        <div style="font-size:var(--text-xs);color:var(--color-text-faint);margin-top:.4rem">${pendingOtpHint || 'Use the security code sent to your phone.'}</div>
       </div>
       <div id="otpErr" style="display:none;background:color-mix(in srgb,var(--color-error) 12%,transparent);color:var(--color-error);padding:var(--space-3);border-radius:var(--radius-md);font-size:var(--text-sm);margin-bottom:var(--space-3)"></div>
       <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="submitOTP()">Verify & Login</button>
       <button onclick="resendOTP()" style="width:100%;text-align:center;margin-top:var(--space-2);font-size:var(--text-xs);color:var(--color-primary);padding:var(--space-1);background:none;border:none;cursor:pointer">Resend Code</button>
-      <button onclick="loginStep='password';renderLoginStep()" style="width:100%;text-align:center;margin-top:var(--space-1);font-size:var(--text-xs);color:var(--color-text-muted);padding:var(--space-2)">← Back to password</button>`;
+      <button onclick="loginStep='select';renderLoginStep()" style="width:100%;text-align:center;margin-top:var(--space-1);font-size:var(--text-xs);color:var(--color-text-muted);padding:var(--space-2)">← Back to sign in</button>`;
   }
 }
 
@@ -1033,10 +1102,11 @@ function showApp() {
   var datePill = document.getElementById('currentDatePill');
   if(datePill) datePill.textContent = new Date().toLocaleDateString('en-KE', { day:'2-digit', month:'short', year:'numeric' });
   // Lock the app to this user's role — cannot be changed without logging out
+  const roleConfig = roles[currentUser.role] || roles.payer || { pages: [] };
+  const allowed = (currentUser.pages && currentUser.pages.length ? currentUser.pages : roleConfig.pages) || [];
   appState.role = currentUser.role;
-  appState.page = roles[currentUser.role].pages[0];
+  appState.page = allowed[0] || 'dashboard';
   // Hide all page sections not belonging to this role, show only allowed ones
-  const allowed = roles[currentUser.role].pages;
   document.querySelectorAll('.page').forEach(p => {
     const pageId = p.id.replace('page-','');
     p.style.display = allowed.includes(pageId) ? '' : 'none';

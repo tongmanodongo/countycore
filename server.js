@@ -55,184 +55,335 @@ const CONFIG = {
   },
 };
 
-const AUTH_USERS = {
-  admin01: {
-    id: "admin01",
-    name: "Beatrice Kamau",
-    role: "admin",
-    password: "Admin@2026",
-    avatar: "BK",
-    badge: "System Administrator",
-    sub: "All Departments",
-    phone: "254700000101",
-    twoFA: true,
+function hashSecret(value) {
+  return crypto.createHash("sha256").update(String(value)).digest("hex");
+}
+
+const RBAC_ROLES = {
+  admin: {
+    label: "System Administrator",
+    department: "Platform Administration",
+    pages: ["dashboard","citizen","analytics","revstreams","billing","arrears","gis","feeengine","planapproval","permits","bpReports","markets","parking","str-cess","str-stockring","str-slaughter","oda","odaReports","str-rents","str-liquor","str-bodaboda","str-publichealth","payments","ledger","wallet","micropayments","ussd","compliance","enforcement","treasury","procurement","hr","assets","settings","audit"],
+    permissions: ["auth:login","session:manage","users:manage","state:read","state:write","audit:read","ledger:read","ledger:write","payments:receive","payments:review","reports:read","gis:manage","permits:review","enforcement:openCase","notifications:send","integrations:manage","roles:manage","settings:manage"],
+    scopes: ["platform:admin"],
+    canCreate: ["finance","auditor","executive","chiefofficer","director","legal","supervisor","gisofficer","intakeofficer","reviewofficer","inspector","officer","cashier","enforcer"],
   },
-  exec01: {
-    id: "exec01",
-    name: "Caroline Atieno",
-    role: "executive",
-    password: "Executive@2026",
-    avatar: "CA",
-    badge: "County Executive (CECM)",
-    sub: "Office of the Governor",
-    phone: "254700000102",
-    twoFA: true,
+  executive: {
+    label: "County Executive (CECM)",
+    department: "Executive Office",
+    pages: ["dashboard","citizen","analytics","revstreams","gis","feeengine","permits","bpReports","markets","parking","str-cess","str-stockring","str-slaughter","oda","odaReports","planapproval","str-rents","str-liquor","str-bodaboda","str-publichealth","ledger","micropayments","compliance","enforcement"],
+    permissions: ["state:read","audit:read","ledger:read","reports:read","permits:review","enforcement:openCase","notifications:send"],
+    scopes: ["executive:approve"],
+    canCreate: [],
   },
-  cho01: {
-    id: "cho01",
-    name: "Susan Akinyi",
-    role: "chiefofficer",
-    password: "ChiefOfficer@2026",
-    avatar: "SA",
-    badge: "Chief Officer",
-    sub: "Lands, Housing & Physical Planning",
-    phone: "254700000103",
-    twoFA: true,
+  chiefofficer: {
+    label: "Chief Officer",
+    department: "Departmental Management",
+    pages: ["dashboard","citizen","analytics","revstreams","gis","feeengine","permits","bpReports","markets","parking","str-cess","str-stockring","str-slaughter","oda","odaReports","planapproval","str-rents","str-liquor","str-bodaboda","str-publichealth","ledger","compliance","enforcement","procurement","assets"],
+    permissions: ["state:read","audit:read","ledger:read","reports:read","permits:review","enforcement:openCase","notifications:send"],
+    scopes: ["department:approve"],
+    canCreate: ["director"],
   },
-  dir01: {
-    id: "dir01",
-    name: "Peter Nyongo",
-    role: "director",
-    password: "Director@2026",
-    avatar: "PN",
-    badge: "Director, Physical Planning",
-    sub: "Lands & Physical Planning",
-    phone: "254700000104",
-    twoFA: true,
+  director: {
+    label: "Director",
+    department: "Department Delivery",
+    pages: ["dashboard","citizen","gis","permits","bpReports","markets","parking","str-cess","str-stockring","str-slaughter","oda","odaReports","planapproval","str-rents","str-liquor","str-bodaboda","str-publichealth","compliance","enforcement"],
+    permissions: ["state:read","audit:read","ledger:read","reports:read","permits:review","enforcement:openCase","notifications:send"],
+    scopes: ["department:review"],
+    canCreate: [],
   },
-  sup01: {
-    id: "sup01",
-    name: "Mary Adhiambo",
-    role: "supervisor",
-    password: "Supervisor@2026",
-    avatar: "MA",
-    badge: "Supervisor",
-    sub: "Kisumu Central",
-    phone: "254700000105",
-    twoFA: true,
+  supervisor: {
+    label: "Supervisor",
+    department: "Operations Oversight",
+    pages: ["dashboard","citizen","analytics","revstreams","gis","permits","bpReports","markets","parking","str-cess","str-stockring","str-slaughter","oda","odaReports","planapproval","str-rents","str-liquor","str-bodaboda","str-publichealth","ledger","enforcement","compliance"],
+    permissions: ["state:read","audit:read","ledger:read","reports:read","permits:review","enforcement:openCase","notifications:send"],
+    scopes: ["approval:override"],
+    canCreate: [],
   },
-  fin01: {
-    id: "fin01",
-    name: "James Mwangi",
-    role: "finance",
-    password: "Finance@2026",
-    avatar: "JM",
-    badge: "Finance Manager",
-    sub: "Finance & Treasury",
-    phone: "254700000106",
-    twoFA: true,
+  finance: {
+    label: "Finance Manager",
+    department: "Finance & Treasury",
+    pages: ["dashboard","citizen","analytics","revstreams","billing","arrears","gis","feeengine","str-cess","str-stockring","str-slaughter","oda","odaReports","planapproval","str-rents","str-liquor","str-bodaboda","str-publichealth","payments","ledger","wallet","micropayments","compliance","treasury","procurement","hr","assets","audit"],
+    permissions: ["state:read","audit:read","ledger:read","ledger:write","payments:receive","payments:review","reports:read","notifications:send","integrations:manage"],
+    scopes: ["finance:reconcile"],
+    canCreate: ["officer","executive"],
   },
-  int01: {
-    id: "int01",
-    name: "Lilian Achieng",
-    role: "intakeofficer",
-    password: "Intake@2026",
-    avatar: "LA",
-    badge: "Intake Officer",
-    sub: "Front Office",
-    phone: "254700000107",
-    twoFA: true,
+  intakeofficer: {
+    label: "Intake Officer",
+    department: "Front Office",
+    pages: ["dashboard","citizen","permits","bpReports","oda","planapproval","markets","str-liquor","str-bodaboda","str-publichealth"],
+    permissions: ["state:read","audit:read","reports:read","permits:review","notifications:send"],
+    scopes: ["intake:validate"],
+    canCreate: [],
   },
-  rev01: {
-    id: "rev01",
-    name: "Kevin Otieno",
-    role: "reviewofficer",
-    password: "Review@2026",
-    avatar: "KO",
-    badge: "Reviewing Officer",
-    sub: "Trade & Licensing",
-    phone: "254700000108",
-    twoFA: true,
+  reviewofficer: {
+    label: "Reviewing Officer",
+    department: "Case Review",
+    pages: ["dashboard","citizen","gis","permits","bpReports","markets","parking","str-cess","str-stockring","str-slaughter","oda","odaReports","planapproval","str-rents","str-liquor","str-bodaboda","str-publichealth"],
+    permissions: ["state:read","audit:read","reports:read","permits:review","notifications:send"],
+    scopes: ["review:recommend"],
+    canCreate: [],
   },
-  ins01: {
-    id: "ins01",
-    name: "Faith Wanjiru",
-    role: "inspector",
-    password: "Inspector@2026",
-    avatar: "FW",
-    badge: "Inspector / Field Officer",
-    sub: "Environmental Health",
-    phone: "254700000109",
-    twoFA: true,
+  inspector: {
+    label: "Inspector / Field Officer",
+    department: "Field Operations",
+    pages: ["dashboard","citizen","gis","permits","oda","planapproval","markets","parking","str-cess","str-stockring","str-slaughter","str-rents","str-liquor","str-bodaboda","str-publichealth"],
+    permissions: ["state:read","audit:read","reports:read","gis:manage","notifications:send"],
+    scopes: ["field:inspect"],
+    canCreate: [],
   },
-  off01: {
-    id: "off01",
-    name: "Grace Ochieng",
-    role: "officer",
-    password: "Officer@2026",
-    avatar: "GO",
-    badge: "Revenue Officer",
-    sub: "Kisumu Central",
-    phone: "254700000110",
-    twoFA: true,
+  officer: {
+    label: "Revenue Officer",
+    department: "Revenue Operations",
+    pages: ["dashboard","citizen","revstreams","billing","arrears","gis","feeengine","permits","bpReports","markets","parking","str-cess","str-stockring","str-slaughter","oda","odaReports","planapproval","str-rents","str-liquor","str-bodaboda","str-publichealth","ledger","micropayments","enforcement","assets","settings"],
+    permissions: ["state:read","state:write","audit:read","ledger:read","ledger:write","payments:receive","reports:read","permits:review","notifications:send"],
+    scopes: ["billing:collect"],
+    canCreate: ["cashier","enforcer"],
   },
-  gis01: {
-    id: "gis01",
-    name: "Robert Kiplagat",
-    role: "gisofficer",
-    password: "GIS@2026",
-    avatar: "RK",
-    badge: "GIS Officer",
-    sub: "Lands & Physical Planning",
-    phone: "254700000111",
-    twoFA: true,
+  legal: {
+    label: "Legal Liaison",
+    department: "Legal Services",
+    pages: ["dashboard","citizen","arrears","compliance","enforcement","ledger","audit"],
+    permissions: ["state:read","audit:read","ledger:read","reports:read","enforcement:openCase","notifications:send"],
+    scopes: ["legal:review"],
+    canCreate: [],
   },
-  leg01: {
-    id: "leg01",
-    name: "Vincent Otieno",
-    role: "legal",
-    password: "Legal@2026",
-    avatar: "VO",
-    badge: "Legal Liaison",
-    sub: "County Attorney's Office",
-    phone: "254700000112",
-    twoFA: true,
+  cashier: {
+    label: "Collections Agent",
+    department: "Receipting",
+    pages: ["dashboard","billing","arrears","permits","markets","parking","str-rents","payments","wallet","micropayments","ussd"],
+    permissions: ["state:read","ledger:read","ledger:write","payments:receive","notifications:send"],
+    scopes: ["receipts:issue"],
+    canCreate: [],
   },
-  cash01: {
-    id: "cash01",
-    name: "Samuel Kiprotich",
-    role: "cashier",
-    password: "Cashier@2026",
-    avatar: "SK",
-    badge: "Collections Agent",
-    sub: "City Hall Counter",
-    phone: "254700000113",
-    twoFA: true,
+  enforcer: {
+    label: "Enforcement Officer",
+    department: "Enforcement",
+    pages: ["dashboard","arrears","markets","parking","str-cess","str-stockring","str-bodaboda","enforcement","citizen"],
+    permissions: ["state:read","audit:read","reports:read","enforcement:openCase","notifications:send"],
+    scopes: ["enforcement:openCase"],
+    canCreate: [],
   },
-  enf01: {
-    id: "enf01",
-    name: "Daniel Omondi",
-    role: "enforcer",
-    password: "Enforce@2026",
-    avatar: "DO",
-    badge: "Enforcement Officer",
-    sub: "Kisumu Central",
-    phone: "254700000114",
-    twoFA: true,
+  gisofficer: {
+    label: "GIS Officer",
+    department: "Spatial Data",
+    pages: ["dashboard","citizen","analytics","gis","oda","planapproval","permits","markets","parking","str-cess","str-stockring","str-slaughter","str-rents","str-liquor","str-bodaboda","str-publichealth"],
+    permissions: ["state:read","audit:read","reports:read","gis:manage","notifications:send"],
+    scopes: ["gis:manage"],
+    canCreate: [],
   },
-  aud01: {
-    id: "aud01",
-    name: "Ann Waithira",
-    role: "auditor",
-    password: "Auditor@2026",
-    avatar: "AW",
-    badge: "Auditor",
-    sub: "All (Read-Only)",
-    phone: "254700000115",
-    twoFA: true,
+  auditor: {
+    label: "Auditor",
+    department: "Internal Audit",
+    pages: ["dashboard","analytics","arrears","billing","str-cess","str-stockring","str-slaughter","oda","odaReports","planapproval","str-rents","str-liquor","str-bodaboda","str-publichealth","compliance","ledger","audit"],
+    permissions: ["state:read","audit:read","ledger:read","reports:read"],
+    scopes: ["audit:review"],
+    canCreate: [],
   },
-  pay01: {
-    id: "pay01",
-    name: "Joshua Odhiambo",
-    role: "payer",
-    password: "Payer@2026",
-    avatar: "JO",
-    badge: "Citizen / Business Payer",
-    sub: "KY-88314",
-    phone: "254700000116",
-    twoFA: true,
+  payer: {
+    label: "Applicant / Trader / Owner / Agent",
+    department: "Citizen Services",
+    pages: ["dashboard","billing","arrears","permits","payments","wallet","micropayments","ussd"],
+    permissions: ["state:read","payments:receive","notifications:send"],
+    scopes: ["self:manage"],
+    canCreate: [],
   },
 };
+
+function normalizeAuthUser(user) {
+  const rolePolicy = RBAC_ROLES[user.role] || RBAC_ROLES.payer;
+  return {
+    ...user,
+    passwordHash: user.passwordHash || hashSecret(user.password || ""),
+    department: user.department || rolePolicy.department,
+    permissions: Array.isArray(user.permissions) ? user.permissions : (rolePolicy.permissions || []),
+    scopes: Array.isArray(user.scopes) ? user.scopes : (rolePolicy.scopes || []),
+    pages: Array.isArray(user.pages) ? user.pages : (rolePolicy.pages || []),
+    canCreate: Array.isArray(user.canCreate) ? user.canCreate : (rolePolicy.canCreate || []),
+    roleLabel: user.roleLabel || rolePolicy.label,
+  };
+}
+
+const AUTH_USERS = Object.fromEntries(
+  Object.entries({
+    admin01: {
+      id: "admin01",
+      name: "Beatrice Kamau",
+      role: "admin",
+      password: "Admin@2026",
+      avatar: "BK",
+      badge: "System Administrator",
+      sub: "All Departments",
+      phone: "254700000101",
+      twoFA: true,
+    },
+    exec01: {
+      id: "exec01",
+      name: "Caroline Atieno",
+      role: "executive",
+      password: "Executive@2026",
+      avatar: "CA",
+      badge: "County Executive (CECM)",
+      sub: "Office of the Governor",
+      phone: "254700000102",
+      twoFA: true,
+    },
+    cho01: {
+      id: "cho01",
+      name: "Susan Akinyi",
+      role: "chiefofficer",
+      password: "ChiefOfficer@2026",
+      avatar: "SA",
+      badge: "Chief Officer",
+      sub: "Lands, Housing & Physical Planning",
+      phone: "254700000103",
+      twoFA: true,
+    },
+    dir01: {
+      id: "dir01",
+      name: "Peter Nyongo",
+      role: "director",
+      password: "Director@2026",
+      avatar: "PN",
+      badge: "Director, Physical Planning",
+      sub: "Lands & Physical Planning",
+      phone: "254700000104",
+      twoFA: true,
+    },
+    sup01: {
+      id: "sup01",
+      name: "Mary Adhiambo",
+      role: "supervisor",
+      password: "Supervisor@2026",
+      avatar: "MA",
+      badge: "Supervisor",
+      sub: "Kisumu Central",
+      phone: "254700000105",
+      twoFA: true,
+    },
+    fin01: {
+      id: "fin01",
+      name: "James Mwangi",
+      role: "finance",
+      password: "Finance@2026",
+      avatar: "JM",
+      badge: "Finance Manager",
+      sub: "Finance & Treasury",
+      phone: "254700000106",
+      twoFA: true,
+    },
+    int01: {
+      id: "int01",
+      name: "Lilian Achieng",
+      role: "intakeofficer",
+      password: "Intake@2026",
+      avatar: "LA",
+      badge: "Intake Officer",
+      sub: "Front Office",
+      phone: "254700000107",
+      twoFA: true,
+    },
+    rev01: {
+      id: "rev01",
+      name: "Kevin Otieno",
+      role: "reviewofficer",
+      password: "Review@2026",
+      avatar: "KO",
+      badge: "Reviewing Officer",
+      sub: "Trade & Licensing",
+      phone: "254700000108",
+      twoFA: true,
+    },
+    ins01: {
+      id: "ins01",
+      name: "Faith Wanjiru",
+      role: "inspector",
+      password: "Inspector@2026",
+      avatar: "FW",
+      badge: "Inspector / Field Officer",
+      sub: "Environmental Health",
+      phone: "254700000109",
+      twoFA: true,
+    },
+    off01: {
+      id: "off01",
+      name: "Grace Ochieng",
+      role: "officer",
+      password: "Officer@2026",
+      avatar: "GO",
+      badge: "Revenue Officer",
+      sub: "Kisumu Central",
+      phone: "254700000110",
+      twoFA: true,
+    },
+    gis01: {
+      id: "gis01",
+      name: "Robert Kiplagat",
+      role: "gisofficer",
+      password: "GIS@2026",
+      avatar: "RK",
+      badge: "GIS Officer",
+      sub: "Lands & Physical Planning",
+      phone: "254700000111",
+      twoFA: true,
+    },
+    leg01: {
+      id: "leg01",
+      name: "Vincent Otieno",
+      role: "legal",
+      password: "Legal@2026",
+      avatar: "VO",
+      badge: "Legal Liaison",
+      sub: "County Attorney's Office",
+      phone: "254700000112",
+      twoFA: true,
+    },
+    cash01: {
+      id: "cash01",
+      name: "Samuel Kiprotich",
+      role: "cashier",
+      password: "Cashier@2026",
+      avatar: "SK",
+      badge: "Collections Agent",
+      sub: "City Hall Counter",
+      phone: "254700000113",
+      twoFA: true,
+    },
+    enf01: {
+      id: "enf01",
+      name: "Daniel Omondi",
+      role: "enforcer",
+      password: "Enforce@2026",
+      avatar: "DO",
+      badge: "Enforcement Officer",
+      sub: "Kisumu Central",
+      phone: "254700000114",
+      twoFA: true,
+    },
+    aud01: {
+      id: "aud01",
+      name: "Ann Waithira",
+      role: "auditor",
+      password: "Auditor@2026",
+      avatar: "AW",
+      badge: "Auditor",
+      sub: "All (Read-Only)",
+      phone: "254700000115",
+      twoFA: true,
+    },
+    pay01: {
+      id: "pay01",
+      name: "Joshua Odhiambo",
+      role: "payer",
+      password: "Payer@2026",
+      avatar: "JO",
+      badge: "Citizen / Business Payer",
+      sub: "KY-88314",
+      phone: "254700000116",
+      twoFA: true,
+    },
+  }).map(([id, user]) => [id, normalizeAuthUser({ ...user, id })])
+);
 
 function ensureStore() {
   if (!fs.existsSync(DATA_DIR)) {
@@ -486,6 +637,17 @@ function requireSession(req, res, store) {
   return session;
 }
 
+function requirePermission(req, res, store, permission) {
+  const session = requireSession(req, res, store);
+  if (!session) return null;
+  const permissions = new Set(session.user.permissions || []);
+  if (!permissions.has(permission)) {
+    sendJson(res, 403, { error: `Forbidden: missing scope ${permission}` });
+    return null;
+  }
+  return session;
+}
+
 function callbackTokenFromRequest(req) {
   const headerToken = req.headers["x-callback-token"];
   if (headerToken) return String(headerToken);
@@ -522,19 +684,34 @@ function addAudit(store, actor, action, module, details, ipAddress) {
   });
 }
 
+function toSessionUser(user) {
+  const source = user || {};
+  const rolePolicy = RBAC_ROLES[source.role] || RBAC_ROLES.payer;
+  return {
+    id: source.id,
+    name: source.name,
+    role: source.role,
+    avatar: source.avatar || "",
+    badge: source.badge || "",
+    sub: source.sub || "",
+    phone: source.phone || "",
+    twoFA: Boolean(source.twoFA),
+    department: source.department || rolePolicy.department || "",
+    permissions: Array.isArray(source.permissions) ? source.permissions : (rolePolicy.permissions || []),
+    scopes: Array.isArray(source.scopes) ? source.scopes : (rolePolicy.scopes || []),
+    pages: Array.isArray(source.pages) ? source.pages : (rolePolicy.pages || []),
+    canCreate: Array.isArray(source.canCreate) ? source.canCreate : (rolePolicy.canCreate || []),
+    roleLabel: source.roleLabel || rolePolicy.label || source.badge || source.role,
+  };
+}
+
 function createSession(store, user, ipAddress) {
   const token = crypto.randomUUID();
   const now = new Date().toISOString();
+  const sessionUser = toSessionUser(user);
   const session = {
     token,
-    user: {
-      id: user.id,
-      name: user.name,
-      role: user.role,
-      avatar: user.avatar || "",
-      badge: user.badge || "",
-      sub: user.sub || "",
-    },
+    user: sessionUser,
     createdAt: now,
     updatedAt: now,
   };
@@ -551,14 +728,7 @@ function createSession(store, user, ipAddress) {
 }
 
 function createSessionFromAuthUser(store, authUser, ipAddress) {
-  return createSession(store, {
-    id: authUser.id,
-    name: authUser.name,
-    role: authUser.role,
-    avatar: authUser.avatar,
-    badge: authUser.badge,
-    sub: authUser.sub,
-  }, ipAddress);
+  return createSession(store, authUser, ipAddress);
 }
 
 function parseLedgerEntry(payload, actorName) {
@@ -863,21 +1033,23 @@ async function handleApi(req, res, url) {
   if (url.pathname === "/api/auth/login" && req.method === "POST") {
     try {
       const body = await parseJsonBody(req);
-      const userId = String(body.userId || "").trim();
+      const identifier = String(body.userId || body.username || body.user || "").trim();
       const password = String(body.password || "");
-      if (!userId || !password) {
+      if (!identifier || !password) {
         sendJson(res, 400, { error: "userId and password are required" });
         return;
       }
 
-      const user = AUTH_USERS[userId];
-      if (!user || user.password !== password) {
+      const authUser = AUTH_USERS[identifier] || Object.values(AUTH_USERS).find((entry) => entry.id === identifier || entry.name === identifier || entry.id.toLowerCase() === identifier.toLowerCase());
+      const passwordHash = hashSecret(password);
+      const validPassword = authUser && (authUser.passwordHash === passwordHash || authUser.password === password);
+      if (!authUser || !validPassword) {
         sendJson(res, 401, { error: "Invalid credentials" });
         return;
       }
 
-      if (!user.twoFA) {
-        const session = createSessionFromAuthUser(store, user, requestIp(req));
+      if (!authUser.twoFA) {
+        const session = createSessionFromAuthUser(store, authUser, requestIp(req));
         await writeStore(store);
         sendJson(res, 200, { token: session.token, user: session.user, requiresOtp: false });
         return;
@@ -888,7 +1060,7 @@ async function handleApi(req, res, url) {
       const expiresAt = new Date(
         Date.now() + CONFIG.notifications.otpTtlSeconds * 1000
       ).toISOString();
-      const recipient = user.phone;
+      const recipient = authUser.phone;
       const message = `Your CountyCore login OTP is ${otpCode}. It expires in ${CONFIG.notifications.otpTtlSeconds} seconds.`;
       const provider = await sendOtpNotification({
         channel: "sms",
@@ -899,7 +1071,7 @@ async function handleApi(req, res, url) {
 
       store.authChallenges.unshift({
         challengeId,
-        userId,
+        userId: authUser.id,
         otpHash: hashOtp(otpCode),
         expiresAt,
         verifiedAt: null,
@@ -918,7 +1090,7 @@ async function handleApi(req, res, url) {
       });
       addAudit(
         store,
-        user.name,
+        authUser.name,
         "Login OTP issued",
         "Access Control",
         `OTP issued to ${maskPhone(recipient)}`,
@@ -992,6 +1164,14 @@ async function handleApi(req, res, url) {
     return;
   }
 
+  if (url.pathname === "/api/rbac/roles" && req.method === "GET") {
+    sendJson(res, 200, {
+      roles: RBAC_ROLES,
+      moduleRoles: {},
+    });
+    return;
+  }
+
   if (url.pathname === "/api/session/login" && req.method === "POST") {
     try {
       const body = await parseJsonBody(req);
@@ -1039,14 +1219,14 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === "/api/ledger" && req.method === "GET") {
-    const session = requireSession(req, res, store);
+    const session = requirePermission(req, res, store, "ledger:read");
     if (!session) return;
     sendJson(res, 200, { entries: store.ledger });
     return;
   }
 
   if (url.pathname === "/api/ledger" && req.method === "POST") {
-    const session = requireSession(req, res, store);
+    const session = requirePermission(req, res, store, "ledger:write");
     if (!session) return;
     try {
       const body = await parseJsonBody(req);
@@ -1069,21 +1249,21 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === "/api/audit" && req.method === "GET") {
-    const session = requireSession(req, res, store);
+    const session = requirePermission(req, res, store, "audit:read");
     if (!session) return;
     sendJson(res, 200, { entries: store.audit });
     return;
   }
 
   if (url.pathname === "/api/state" && req.method === "GET") {
-    const session = requireSession(req, res, store);
+    const session = requirePermission(req, res, store, "state:read");
     if (!session) return;
     sendJson(res, 200, { state: store.appState });
     return;
   }
 
   if (url.pathname === "/api/state" && req.method === "PUT") {
-    const session = requireSession(req, res, store);
+    const session = requirePermission(req, res, store, "state:write");
     if (!session) return;
     try {
       const body = await parseJsonBody(req);
@@ -1109,7 +1289,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === "/api/integrations/mpesa/stk-push" && req.method === "POST") {
-    const session = requireSession(req, res, store);
+    const session = requirePermission(req, res, store, "payments:receive");
     if (!session) return;
     try {
       const body = await parseJsonBody(req);
@@ -1218,7 +1398,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === "/api/integrations/coopbank/collection" && req.method === "POST") {
-    const session = requireSession(req, res, store);
+    const session = requirePermission(req, res, store, "payments:receive");
     if (!session) return;
     try {
       const body = await parseJsonBody(req);
@@ -1330,7 +1510,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === "/api/notifications/otp/send" && req.method === "POST") {
-    const session = requireSession(req, res, store);
+    const session = requirePermission(req, res, store, "notifications:send");
     if (!session) return;
     try {
       const body = await parseJsonBody(req);
@@ -1440,7 +1620,7 @@ async function handleApi(req, res, url) {
   }
 
   if (url.pathname === "/api/notifications/transaction" && req.method === "POST") {
-    const session = requireSession(req, res, store);
+    const session = requirePermission(req, res, store, "notifications:send");
     if (!session) return;
     try {
       const body = await parseJsonBody(req);
@@ -1512,7 +1692,11 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (url.pathname === "/" || url.pathname === "/countycore_v8.html") {
+    if (
+      url.pathname === "/" ||
+      url.pathname === "/countycore_v9.html" ||
+      url.pathname === "/countycore_v8.html"
+    ) {
       const html = fs.readFileSync(FRONTEND_FILE, "utf8");
       sendText(res, 200, html, "text/html; charset=utf-8");
       return;
