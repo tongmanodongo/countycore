@@ -1560,33 +1560,68 @@ function renderPayerDashboard(){
 // MODULE 1: REVENUE STREAM MANAGEMENT
 // ════════════════════════════════════════════════════════════════════════
 const REVENUE_STREAMS = [
-  {name:'Land Rates',              code:'LR-001',  target:0, collected:0, pct:0, dept:'GIS & Land Rates', freq:'Annual', page:'gis'},
-  {name:'Single Business Permit',  code:'SBP-001', target:0, collected:0, pct:0, dept:'Business Permits', freq:'Annual', page:'permits'},
-  {name:'Market Fees',             code:'MC-001',  target:0,  collected:0,  pct:0, dept:'Markets & Allocation', freq:'Daily', page:'markets'},
-  {name:'Parking Fees',            code:'PK-001',  target:0, collected:0,  pct:0, dept:'Parking Management', freq:'Daily', page:'parking'},
-  {name:'Liquor License',          code:'LL-001',  target:0,  collected:0,  pct:0, dept:'Liquor Licensing', freq:'Annual', page:'str-liquor'},
-  {name:'Building Permit',         code:'BP-001',  target:0,  collected:0,  pct:0, dept:'Plan & Building Approvals', freq:'One-off', page:'planapproval'},
-  {name:'Health Facility Fees',    code:'HF-001',  target:0, collected:0,  pct:0, dept:'Public Health & Sundry', freq:'Annual', page:'str-publichealth'},
-  {name:'Cess & Mineral Royalties',code:'CS-001',  target:0,  collected:0,  pct:0, dept:'Cess & Mineral Royalties', freq:'Daily', page:'str-cess'},
-  {name:'Stock Ring Fees',         code:'SR-001',  target:0,  collected:0,   pct:0, dept:'Stock Ring Fees', freq:'Daily', page:'str-stockring'},
-  {name:'Slaughter Fees',          code:'SL-001',  target:0,  collected:0,  pct:0, dept:'Slaughter Fees', freq:'Daily', page:'str-slaughter'},
-  {name:'Rents (County Property)', code:'RT-001',  target:0,  collected:0,  pct:0, dept:'Rents Registry', freq:'Monthly', page:'str-rents'},
-  {name:'Boda Boda Fees',          code:'BB-001',  target:0,  collected:0,  pct:0, dept:'Boda Boda Fees', freq:'Daily', page:'str-bodaboda'},
-  {name:'Outdoor Advertising',     code:'OD-001',  target:0,  collected:0,  pct:0, dept:'Outdoor Advertising', freq:'Annual', page:'oda'},
-  {name:'Fire Licenses & Permits', code:'FR-001',  target:0,  collected:0,  pct:0, dept:'Fire Licenses & Permits', freq:'Annual', page:'str-fire'},
-  {name:'Park Fees',               code:'PF-001',  target:0,  collected:0,  pct:0, dept:'Park Fees', freq:'Daily', page:'parkfees'},
-  {name:'Hire of County Assets',   code:'AH-001',  target:0,  collected:0,  pct:0, dept:'Hire of County Assets', freq:'Per booking', page:'assethire'},
-  {name:'Burial Permits',          code:'BR-001',  target:0,  collected:0,  pct:0, dept:'Burial Permits', freq:'Ad-hoc', page:'burial'},
-  {name:'Fines & Penalties',       code:'FN-001',  target:0,  collected:0,  pct:0, dept:'Fines & Penalties', freq:'Ad-hoc', page:'fines'},
+  {name:'Land Rates',              code:'LR-001',  target:0, collected:0, pct:0, penaltyRate:3, dept:'GIS & Land Rates', freq:'Annual', page:'gis'},
+  {name:'Single Business Permit',  code:'SBP-001', target:0, collected:0, pct:0, penaltyRate:3, dept:'Business Permits', freq:'Annual', page:'permits'},
+  {name:'Market Fees',             code:'MC-001',  target:0,  collected:0,  pct:0, penaltyRate:3, dept:'Markets & Allocation', freq:'Daily', page:'markets'},
+  {name:'Parking Fees',            code:'PK-001',  target:0, collected:0,  pct:0, penaltyRate:3, dept:'Parking Management', freq:'Daily', page:'parking'},
+  {name:'Liquor License',          code:'LL-001',  target:0,  collected:0,  pct:0, penaltyRate:3, dept:'Liquor Licensing', freq:'Annual', page:'str-liquor'},
+  {name:'Building Permit',         code:'BP-001',  target:0,  collected:0,  pct:0, penaltyRate:3, dept:'Plan & Building Approvals', freq:'One-off', page:'planapproval'},
+  {name:'Health Facility Fees',    code:'HF-001',  target:0, collected:0,  pct:0, penaltyRate:3, dept:'Public Health & Sundry', freq:'Annual', page:'str-publichealth'},
+  {name:'Cess & Mineral Royalties',code:'CS-001',  target:0,  collected:0,  pct:0, penaltyRate:3, dept:'Cess & Mineral Royalties', freq:'Daily', page:'str-cess'},
+  {name:'Stock Ring Fees',         code:'SR-001',  target:0,  collected:0,   pct:0, penaltyRate:3, dept:'Stock Ring Fees', freq:'Daily', page:'str-stockring'},
+  {name:'Slaughter Fees',          code:'SL-001',  target:0,  collected:0,  pct:0, penaltyRate:3, dept:'Slaughter Fees', freq:'Daily', page:'str-slaughter'},
+  {name:'Rents (County Property)', code:'RT-001',  target:0,  collected:0,  pct:0, penaltyRate:3, dept:'Rents Registry', freq:'Monthly', page:'str-rents'},
+  {name:'Boda Boda Fees',          code:'BB-001',  target:0,  collected:0,  pct:0, penaltyRate:3, dept:'Boda Boda Fees', freq:'Daily', page:'str-bodaboda'},
+  {name:'Outdoor Advertising',     code:'OD-001',  target:0,  collected:0,  pct:0, penaltyRate:3, dept:'Outdoor Advertising', freq:'Annual', page:'oda'},
+  {name:'Fire Licenses & Permits', code:'FR-001',  target:0,  collected:0,  pct:0, penaltyRate:3, dept:'Fire Licenses & Permits', freq:'Annual', page:'str-fire'},
+  {name:'Park Fees',               code:'PF-001',  target:0,  collected:0,  pct:0, penaltyRate:3, dept:'Park Fees', freq:'Daily', page:'parkfees'},
+  {name:'Hire of County Assets',   code:'AH-001',  target:0,  collected:0,  pct:0, penaltyRate:3, dept:'Hire of County Assets', freq:'Per booking', page:'assethire'},
+  {name:'Burial Permits',          code:'BR-001',  target:0,  collected:0,  pct:0, penaltyRate:3, dept:'Burial Permits', freq:'Ad-hoc', page:'burial'},
+  {name:'Fines & Penalties',       code:'FN-001',  target:0,  collected:0,  pct:0, penaltyRate:3, dept:'Fines & Penalties', freq:'Ad-hoc', page:'fines'},
 ];
+
+const STREAM_CONFIG_REQUESTS = [];
+
+function currentPenaltyRateFromFinanceAct(){
+  var monthly = PENALTY_RULES.find(function(r){ return r.type==='percent_monthly' && typeof r.rate==='number'; });
+  return monthly ? monthly.rate : 3;
+}
+
+function syncRevenueStreamsPenaltyFromFinanceAct(){
+  var base = currentPenaltyRateFromFinanceAct();
+  REVENUE_STREAMS.forEach(function(s){
+    if(!Number.isFinite(+s.penaltyRate) || +s.penaltyRate <= 0) s.penaltyRate = base;
+  });
+}
+
+function calculateCountyRevenueForecast(){
+  var streamGap = REVENUE_STREAMS.reduce(function(sum, s){
+    return sum + Math.max(0, (+s.target||0) - (+s.collected||0));
+  }, 0);
+  var parcelExposure = (typeof GIS_PARCELS!=='undefined' ? GIS_PARCELS.reduce(function(s,p){
+    return s + Math.max(0, (+p.ratesBalance||0)) + (+p.annualRate||0);
+  },0) : 0);
+  var permitExposure = (typeof BP_APPLICATIONS!=='undefined' ? BP_APPLICATIONS.reduce(function(s,a){
+    if(a.status==='Active' || a.status==='Approved — Pending Issuance') return s + (+a.feeTotal||0);
+    return s;
+  },0) : 0);
+  return {
+    projected: streamGap + parcelExposure + permitExposure,
+    streamGap: streamGap,
+    parcelExposure: parcelExposure,
+    permitExposure: permitExposure,
+  };
+}
 
 function renderRevStreams(role){
   const canEdit = ['admin','finance','officer'].includes(role);
+  syncRevenueStreamsPenaltyFromFinanceAct();
   const totalTarget = REVENUE_STREAMS.reduce((s,r)=>s+r.target,0);
   const totalCollected = REVENUE_STREAMS.reduce((s,r)=>s+r.collected,0);
   const overallPct = totalTarget ? Math.round(totalCollected/totalTarget*100) : 0;
   const bestPerformer = REVENUE_STREAMS.slice().sort(function(a,b){return b.pct-a.pct;})[0];
   const worstPerformer = REVENUE_STREAMS.slice().sort(function(a,b){return a.pct-b.pct;})[0];
+  const forecast = calculateCountyRevenueForecast();
 
   return pageHeader('Revenue Stream Management','Configure and monitor all county revenue streams, rates, and billing frequency.',
     canEdit ? '<button class="btn btn-primary" onclick="modalNewStream()">+ New Stream</button>' : '')
@@ -1597,6 +1632,12 @@ function renderRevStreams(role){
       revStreamListModalBody(REVENUE_STREAMS.slice().sort(function(a,b){return b.pct-a.pct;})))
   + kpiModal('Needs Attention',worstPerformer.name,worstPerformer.pct+'% of target — review rates','trend-bad','Streams Needing Attention',
       revStreamListModalBody(REVENUE_STREAMS.slice().sort(function(a,b){return a.pct-b.pct;})))
+  + kpiModal('Revenue Forecast','KES '+forecast.projected.toLocaleString(),'Derived from stream gap + exposure','trend-up','Forecast Composition',
+      '<div style="font-size:var(--text-xs);padding:var(--space-3);display:grid;gap:6px">'
+      +'<div>Target gap: <strong>KES '+forecast.streamGap.toLocaleString()+'</strong></div>'
+      +'<div>Parcel exposure: <strong>KES '+forecast.parcelExposure.toLocaleString()+'</strong></div>'
+      +'<div>Permit/active exposure: <strong>KES '+forecast.permitExposure.toLocaleString()+'</strong></div>'
+      +'</div>')
   + '</div>'
   + '<div class="card">'
   + '<div class="card-header"><div><div class="card-title">Revenue Stream Master Table</div><div class="card-meta">Click a stream name to view performance detail; Configure routes through Director → CFO → CECM Finance approval</div></div></div>'
@@ -1648,7 +1689,7 @@ function modalNewStream(){
     + selectRow('Responsible Department',['Land Rates','Business Permits','Markets','Markets & Parking','Finance & Treasury'])
     + selectRow('Billing Frequency',['Annual','Monthly','Daily','One-off'])
     + fieldRow('FY Target (KES) *','number','0.00')
-    + fieldRow('Penalty Rate (%/month)','number','0')
+    + fieldRow('Penalty Rate (%/month)','number','',currentPenaltyRateFromFinanceAct())
     + fieldRow('Grace Period (days)','number','30')
     + '</div>'
     + mAct(['Cancel','btn-ghost','closeModal()'],['Save Stream','btn-primary',"closeModal();showToast('Revenue stream saved.')"])
@@ -1668,19 +1709,123 @@ function openStreamConfig(code){
     + selectRow('Responsible Department',['Land Rates','Business Permits','Markets','Markets & Parking','Finance & Treasury'])
     + selectRow('Billing Frequency',['Annual','Monthly','Daily','One-off'])
     + fieldRow('FY Target (KES)','number','',s.target)
-    + fieldRow('Penalty Rate (%/month)','number','','2')
+    + fieldRow('Penalty Rate (%/month)','number','',String(s.penaltyRate||currentPenaltyRateFromFinanceAct()))
     + '</div>'
     + '<div style="font-size:var(--text-xs);color:var(--color-text-muted);background:var(--color-surface-offset);border-radius:var(--radius-md);padding:var(--space-3);margin-top:var(--space-3)">'
-    + 'Changes to this stream route for approval: '+escalationBadgeRow('financial').replace('Officer','Department Director').replace('Chief Officer','CFO').replace('CECM','CECM Finance')
+    + 'Changes to this stream route for approval: Department Director → Director → CFO → CECM Finance'
     + '</div>'
-    + mAct(['Cancel','btn-ghost','closeModal()'],['Submit for Approval','btn-primary',"closeModal();logAudit('Revenue stream change submitted','Revenue Streams','"+s.name+" configuration change routed to Department Director → CFO → CECM Finance.');showToast('Change submitted — routed to Department Director, then CFO, then CECM Finance for approval.')"])
+    + mAct(['Cancel','btn-ghost','closeModal()'],['Submit for Approval','btn-primary',"_submitStreamConfigChange('"+s.code+"')"])
   );
+}
+
+function _submitStreamConfigChange(code){
+  var s = REVENUE_STREAMS.find(function(r){ return r.code===code; });
+  if(!s) return;
+  var req = {
+    id: 'SRC-'+(STREAM_CONFIG_REQUESTS.length+1),
+    streamCode: s.code,
+    streamName: s.name,
+    requestedBy: currentUser?currentUser.name:'System',
+    stages: ['Department Director','Director','Chief Finance Officer','CECM Finance'],
+    status: 'Pending Department Director Approval',
+    date: new Date().toLocaleString('en-KE'),
+  };
+  STREAM_CONFIG_REQUESTS.unshift(req);
+  logAudit('Revenue stream change submitted','Revenue Streams', s.name+' change routed through Department Director → Director → CFO → CECM Finance.');
+  closeModal();
+  showToast('Change submitted for 4-stage approval: Department Director → Director → CFO → CECM Finance.');
 }
 
 // ════════════════════════════════════════════════════════════════════════
 // MODULE: CITIZEN CRM (unified profiles across permits, land, market, wallet)
 // ════════════════════════════════════════════════════════════════════════
 const CITIZENS = [];
+
+function normalizeDigits(value){
+  return String(value||'').replace(/\D/g,'');
+}
+
+function confirmNationalIdLength(idValue, contextLabel){
+  var digits = normalizeDigits(idValue);
+  if(!digits) return true;
+  if(digits.length>=7 && digits.length<=8) return true;
+  if(typeof window!=='undefined' && typeof window.confirm==='function'){
+    return window.confirm((contextLabel||'National ID')+' has '+digits.length+' digits (expected 7-8). Do you want to proceed?');
+  }
+  return true;
+}
+
+function upsertCitizenProfile(profile){
+  if(!profile || !profile.name) return null;
+  var pin = profile.pin || '';
+  var phone = profile.phone || '';
+  var email = profile.email || '';
+  var nationalId = profile.nationalId || '';
+  var kraPin = profile.kraPin || '';
+  var existing = CITIZENS.find(function(c){
+    return (pin && c.pin===pin)
+      || (phone && c.phone===phone)
+      || (email && c.email===email)
+      || (nationalId && c.idNo===nationalId)
+      || (kraPin && c.idNo===kraPin);
+  });
+  if(existing){
+    existing.name = profile.name || existing.name;
+    existing.type = profile.type || existing.type || 'Individual';
+    existing.phone = phone || existing.phone || '';
+    existing.email = email || existing.email || '';
+    existing.idNo = nationalId || kraPin || existing.idNo || '';
+    existing.services = Array.from(new Set((existing.services||[]).concat(profile.services||[])));
+    if(profile.balance) existing.balance = profile.balance;
+    return existing;
+  }
+  var created = {
+    pin: pin || ('KY-'+(80000+Math.floor(Math.random()*19999))),
+    name: profile.name,
+    type: profile.type || 'Individual',
+    idNo: nationalId || kraPin || '',
+    phone: phone || '',
+    email: email || '',
+    services: profile.services || [],
+    balance: profile.balance || 'KES 0',
+    status: profile.status || 'Active',
+    dateRegistered: new Date().toLocaleDateString('en-KE'),
+  };
+  CITIZENS.unshift(created);
+  return created;
+}
+
+function registerApplicantInCitizenCRM(opts){
+  var rec = upsertCitizenProfile({
+    pin: opts && opts.pin,
+    name: opts && opts.name,
+    type: (opts && opts.type) || 'Individual',
+    nationalId: opts && opts.nationalId,
+    kraPin: opts && opts.kraPin,
+    phone: opts && opts.phone,
+    email: opts && opts.email,
+    services: opts && opts.service ? [opts.service] : [],
+    status: 'Active',
+  });
+  if(rec){
+    if(opts && opts.service && rec.services.indexOf(opts.service)===-1) rec.services.push(opts.service);
+    scheduleStateSync('citizen-profile-upsert');
+  }
+  return rec;
+}
+
+function sendCustomerOnboardingCredentials(customer){
+  if(!customer) return null;
+  var username = customer.pin;
+  var phoneTail = String(customer.phone||'').replace(/\D/g,'').slice(-4) || '0000';
+  var tempPassword = 'Cc'+phoneTail+'!';
+  var msg = 'CountyCore Access: Username '+username+', Temporary Password '+tempPassword+'. Change password after first login.';
+  if(typeof logSMS==='function' && customer.phone){
+    logSMS(customer.phone, msg, customer.pin, 'Citizen CRM', 'Delivered', customer.name);
+  }
+  logAudit('Customer login details shared','Citizen CRM', customer.pin+' credentials shared to phone/email on file.');
+  return { username: username, tempPassword: tempPassword };
+}
 
 function renderCitizen(role){
   const flagged = CITIZENS.filter(function(c){return c.status==='Flagged';});
@@ -1784,12 +1929,15 @@ async function _citizenRegisterSubmit(){
   }
   if(!name){ showToast('Please enter a name before registering.'); return; }
   if(!phone){ showToast('A phone number is required.'); return; }
+  if(type==='Individual' && !confirmNationalIdLength(idNo, 'National ID')) return;
 
   var pin = 'KY-'+(80000+Math.floor(Math.random()*19999));
   while(CITIZENS.some(function(c){return c.pin===pin;})){ pin = 'KY-'+(80000+Math.floor(Math.random()*19999)); }
 
   const customer = {
     pin: pin, name: name, type: type, idNo: idNo, phone: phone, email: email,
+    nationalId: type==='Individual' ? idNo : '',
+    kraPin: type==='Business' ? idNo : '',
     services: [], balance: 'KES 0', status: 'Active', dateRegistered: new Date().toLocaleDateString('en-KE'),
   };
 
@@ -1800,7 +1948,15 @@ async function _citizenRegisterSubmit(){
       const validateRes = await fetch('/api/customers/validate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ pin, phone, idNo }),
+        body: JSON.stringify({ customer: {
+          pin: pin,
+          phone: phone,
+          email: email,
+          nationalId: customer.nationalId,
+          kraPin: customer.kraPin,
+          name: name,
+          businessName: type==='Business' ? name : '',
+        } }),
       });
       const vPayload = await validateRes.json().catch(function(){ return {}; });
       if (!validateRes.ok && validateRes.status !== 404) {
@@ -1831,9 +1987,17 @@ async function _citizenRegisterSubmit(){
   } else {
     CITIZENS.push(customer);
   }
+  var rec = registerApplicantInCitizenCRM({
+    pin: pin, name: name, type: type,
+    nationalId: type==='Individual' ? idNo : '',
+    kraPin: type==='Business' ? idNo : '',
+    phone: phone, email: email, service: 'Citizen CRM',
+  });
+  sendCustomerOnboardingCredentials(rec || customer);
   logAudit('Customer registered','Citizen CRM', pin+' — '+name+' ('+type+')');
+  scheduleStateSync('citizen-registered');
   closeModal();
-  showToast('Customer registered — PIN '+pin+' assigned to '+name+'.');
+  showToast('Customer registered — PIN '+pin+' assigned to '+name+'. Login details sent to phone/email.');
   navigateTo('citizen');
 }
 
@@ -2154,15 +2318,18 @@ function modalGenerateBill(){
     '<div class="form-grid">'
     + '<div class="field" style="grid-column:1/-1"><label>Taxpayer / PIN *</label><input class="input" id="genBillSearch" placeholder="Search by name or PIN…" oninput="genBillSearchLookup()"></div>'
     + '</div>'
-    + '<div id="genBillMatch" style="font-size:var(--text-xs);color:var(--color-text-muted);margin:4px 0 var(--space-3)">Start typing to search the taxpayer database.</div>'
-    + '<div id="genBillFields" style="display:none">'
+    + '<div id="genBillMatch" style="font-size:var(--text-xs);color:var(--color-text-muted);margin:4px 0 var(--space-3)">Search existing taxpayer, or continue with an unregistered taxpayer and optionally register them.</div>'
+    + '<div id="genBillFields" style="display:block">'
     + '<div class="form-grid">'
-    + '<div class="field"><label>Taxpayer Name</label><input class="input" id="genBillName" readonly style="background:var(--color-surface-offset)"></div>'
-    + '<div class="field"><label>PIN</label><input class="input" id="genBillPin" readonly style="background:var(--color-surface-offset)"></div>'
+    + '<div class="field"><label>Taxpayer Name *</label><input class="input" id="genBillName"></div>'
+    + '<div class="field"><label>PIN (if available)</label><input class="input" id="genBillPin" placeholder="KY-XXXXX"></div>'
+    + '<div class="field"><label>Phone Number</label><input class="input" id="genBillPhone" type="tel" placeholder="07XX XXX XXX"></div>'
+    + '<div class="field"><label>Email Address</label><input class="input" id="genBillEmail" type="email" placeholder="name@example.com"></div>'
     + '<div class="field"><label>Revenue Stream *</label><select class="select" id="genBillStream">'+REVENUE_STREAMS.map(function(s){return '<option>'+s.name+'</option>';}).join('')+'</select></div>'
     + '<div class="field"><label>Amount (KES) *</label><input class="input" id="genBillAmount" type="number" placeholder="0.00"></div>'
     + '<div class="field"><label>Due Date *</label><input class="input" id="genBillDue" type="date"></div>'
     + '<div class="field" style="grid-column:1/-1"><label>Description</label><input class="input" id="genBillDesc" placeholder="Optional notes"></div>'
+    + '<div class="field" style="grid-column:1/-1"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="genBillRegisterTaxpayer" style="accent-color:var(--color-primary)"> Taxpayer is not yet registered — create profile from this bill</label></div>'
     + '</div>'
     + '</div>'
     + mAct(['Cancel','btn-ghost','closeModal()'],['Generate &amp; Send','btn-primary',"_genBillConfirm()"])
@@ -2173,32 +2340,49 @@ function genBillSearchLookup(){
   var q = (document.getElementById('genBillSearch').value||'').trim().toLowerCase();
   var note = document.getElementById('genBillMatch');
   var fields = document.getElementById('genBillFields');
-  if(!q){ note.textContent='Start typing to search the taxpayer database.'; fields.style.display='none'; return; }
+  if(!q){ note.textContent='Enter taxpayer details below for walk-in/unregistered billing, or keep searching.'; return; }
   var match = CITIZENS.find(function(c){ return c.name.toLowerCase().indexOf(q)>-1 || c.pin.toLowerCase().indexOf(q)>-1; });
   if(match){
-    note.innerHTML = '<span style="color:var(--color-success)">&#10003; Matched — billing details prefilled below (not editable).</span>';
+    note.innerHTML = '<span style="color:var(--color-success)">&#10003; Matched existing taxpayer — details prefilled below.</span>';
     document.getElementById('genBillName').value = match.name;
     document.getElementById('genBillPin').value = match.pin;
-    fields.style.display = 'block';
+    document.getElementById('genBillPhone').value = match.phone||'';
+    document.getElementById('genBillEmail').value = match.email||'';
+    var regChk = document.getElementById('genBillRegisterTaxpayer');
+    if(regChk) regChk.checked = false;
   } else {
-    note.textContent = 'No match found — keep typing or check the name/PIN.';
-    fields.style.display = 'none';
+    note.textContent = 'No existing taxpayer found — you can still generate this bill and optionally register them.';
   }
 }
 
 function _genBillConfirm(){
   var name = (document.getElementById('genBillName')||{}).value;
   var pin = (document.getElementById('genBillPin')||{}).value;
-  if(!name){ showToast('Please search for and select a taxpayer first.'); return; }
+  var phone = (document.getElementById('genBillPhone')||{}).value || '';
+  var email = (document.getElementById('genBillEmail')||{}).value || '';
+  if(!name){ showToast('Please enter taxpayer name before generating bill.'); return; }
   var stream = (document.getElementById('genBillStream')||{}).value || 'General';
   var amount = +((document.getElementById('genBillAmount')||{}).value) || 0;
   var dueRaw = (document.getElementById('genBillDue')||{}).value;
   var dueDate = dueRaw ? new Date(dueRaw).toLocaleDateString('en-KE') : new Date().toLocaleDateString('en-KE');
   var desc = (document.getElementById('genBillDesc')||{}).value || '';
+  var registerTaxpayer = !!((document.getElementById('genBillRegisterTaxpayer')||{}).checked);
   if(amount<=0){ showToast('Please enter a bill amount greater than zero.'); return; }
   var id = 'BR-'+(100000+generatedBills.length+Math.floor(Math.random()*899));
   generatedBills.push({ id:id, payer:name, pin:pin, revType:stream, amount:amount, dueDate:dueDate, description:desc, status:'Issued' });
+  if(registerTaxpayer || (phone && !CITIZENS.some(function(c){ return c.phone===phone || (pin && c.pin===pin); }))){
+    var reg = registerApplicantInCitizenCRM({
+      pin: pin || '',
+      name: name,
+      type: 'Individual',
+      phone: phone,
+      email: email,
+      service: stream,
+    });
+    if(reg) sendCustomerOnboardingCredentials(reg);
+  }
   logAudit('Bill generated','Billing & Invoicing', id+' generated for '+name+' ('+stream+', KES '+amount.toLocaleString()+') and sent by SMS/email.');
+  scheduleStateSync('bill-generated');
   closeModal();
   showToast('Bill '+id+' generated and sent to '+name+' by SMS and email.');
   navigateTo('billing');
@@ -7416,29 +7600,83 @@ function modalBPCaseDetail(caseId){
 
 // ── New Application — multi-step wizard (Applicant → Premise/GIS →
 // Category & Documents → Fee & Payment) ─────────────────────────────────
+const BP_DRAFT_KEY = 'countycore_bp_draft';
+function bpDraftLoad(){
+  try { return JSON.parse(localStorage.getItem(BP_DRAFT_KEY) || '{}') || {}; } catch(_e){ return {}; }
+}
+function bpDraftSave(partial){
+  var merged = Object.assign({}, bpDraftLoad(), partial||{});
+  localStorage.setItem(BP_DRAFT_KEY, JSON.stringify(merged));
+  return merged;
+}
+function bpDraftClear(){
+  localStorage.removeItem(BP_DRAFT_KEY);
+}
+function bpCaptureStep1(){
+  return bpDraftSave({
+    applicantType: (document.getElementById('bpAppType')||{}).value || 'Individual',
+    idNo: (document.getElementById('bpAppIdNo')||{}).value || '',
+    kraPin: (document.getElementById('bpAppPin')||{}).value || '',
+    applicantName: (document.getElementById('bpAppName')||{}).value || '',
+    phone: (document.getElementById('bpAppPhone')||{}).value || '',
+    email: (document.getElementById('bpAppEmail')||{}).value || '',
+    businessName: (document.getElementById('bpBusinessName')||{}).value || '',
+    businessRegNo: (document.getElementById('bpBusinessRegNo')||{}).value || '',
+    ownershipType: (document.getElementById('bpOwnershipType')||{}).value || '',
+    employeeCount: (document.getElementById('bpEmployees')||{}).value || '',
+  });
+}
+function bpCaptureStep2(){
+  return bpDraftSave({
+    premise: (document.getElementById('bpPremiseName')||{}).value || '',
+    ward: (document.getElementById('bpWard')||{}).value || '',
+    parcel: (document.getElementById('bpParcelNo')||{}).value || '',
+    stallDoorFloor: (document.getElementById('bpStallDoorFloor')||{}).value || '',
+    tenancy: (document.getElementById('bpTenancy')||{}).value || '',
+  });
+}
+function bpCaptureStep3(){
+  return bpDraftSave({
+    category: (document.getElementById('bpAppCategory')||{}).value || '',
+    docFoodHandler: (document.getElementById('bpDocFoodHandler')||{}).value || 'Have document',
+    docFireClearance: (document.getElementById('bpDocFireClearance')||{}).value || 'Have document',
+    docNema: (document.getElementById('bpDocNema')||{}).value || 'Have document',
+    docLiquor: (document.getElementById('bpDocLiquor')||{}).value || 'Have document',
+  });
+}
+function bpMissingDocumentApplicationFees(draft){
+  var total = 0;
+  if((draft.docFoodHandler||'').indexOf('Apply now')===0) total += 1000;
+  if((draft.docFireClearance||'').indexOf('Apply now')===0) total += 3000;
+  if((draft.docNema||'').indexOf('Apply now')===0) total += 2000;
+  if((draft.docLiquor||'').indexOf('Apply now')===0) total += 24000;
+  return total;
+}
+
 function modalBPNewApplicationStep1(){
+  var d = bpDraftLoad();
   openModal('Step 1 of 4 — Applicant & Business',
     '<div style="display:flex;gap:4px;margin-bottom:var(--space-3)">'+[1,2,3,4].map(function(n){return '<div style="flex:1;height:4px;border-radius:99px;background:'+(n===1?'var(--color-primary)':'var(--color-border-muted)')+'"></div>';}).join('')+'</div>'
     +'<div style="font-weight:700;font-size:var(--text-xs);margin-bottom:var(--space-2)">Applicant Details — all fields mandatory</div>'
     +'<div class="form-grid">'
-    +'<div class="field"><label>Applicant Type *</label><select class="select"><option>Individual</option><option>Company</option><option>Partnership</option><option>Agent</option><option>Institution</option><option>NGO</option><option>SACCO</option><option>School</option><option>Clinic</option><option>Other</option></select></div>'
-    +'<div class="field"><label>National ID / Passport No. *</label><input class="input" id="bpAppIdNo" onblur="bpApplicantAutofill()"></div>'
-    +'<div class="field"><label>KRA PIN (where required)</label><input class="input" id="bpAppPin" onblur="bpApplicantAutofill()" placeholder="A0XXXXXXXXX"></div>'
-    +'<div class="field"><label>Full Name *</label><input class="input" id="bpAppName"></div>'
-    +'<div class="field"><label>Phone Number *</label><input class="input" id="bpAppPhone" type="tel" placeholder="07XX XXX XXX"></div>'
-    +fieldRow('Email *','email','')
+    +'<div class="field"><label>Applicant Type *</label><select class="select" id="bpAppType"><option'+(d.applicantType==='Individual'?' selected':'')+'>Individual</option><option'+(d.applicantType==='Company'?' selected':'')+'>Company</option><option'+(d.applicantType==='Partnership'?' selected':'')+'>Partnership</option><option'+(d.applicantType==='Agent'?' selected':'')+'>Agent</option><option'+(d.applicantType==='Institution'?' selected':'')+'>Institution</option><option'+(d.applicantType==='NGO'?' selected':'')+'>NGO</option><option'+(d.applicantType==='SACCO'?' selected':'')+'>SACCO</option><option'+(d.applicantType==='School'?' selected':'')+'>School</option><option'+(d.applicantType==='Clinic'?' selected':'')+'>Clinic</option><option'+(d.applicantType==='Other'?' selected':'')+'>Other</option></select></div>'
+    +'<div class="field"><label>National ID / Passport No. *</label><input class="input" id="bpAppIdNo" value="'+(d.idNo||'')+'" onblur="bpApplicantAutofill()"></div>'
+    +'<div class="field"><label>KRA PIN (where required)</label><input class="input" id="bpAppPin" value="'+(d.kraPin||'')+'" onblur="bpApplicantAutofill()" placeholder="A0XXXXXXXXX"></div>'
+    +'<div class="field"><label>Full Name *</label><input class="input" id="bpAppName" value="'+(d.applicantName||'')+'"></div>'
+    +'<div class="field"><label>Phone Number *</label><input class="input" id="bpAppPhone" type="tel" value="'+(d.phone||'')+'" placeholder="07XX XXX XXX"></div>'
+    +'<div class="field"><label>Email *</label><input class="input" id="bpAppEmail" type="email" value="'+(d.email||'')+'"></div>'
     +'</div>'
     +'<div id="bpAutofillNote" style="font-size:var(--text-xs);color:var(--color-text-muted);margin:4px 0 var(--space-3)"></div>'
     +'<div style="font-weight:700;font-size:var(--text-xs);margin-bottom:var(--space-2)">Business Profile</div>'
     +'<div class="form-grid">'
-    +fieldRow('Registered Business Name *','text','')
-    +fieldRow('Business Registration No.','text','')
-    +fieldRow('Type of Ownership *','text','Sole proprietor / Company / Partnership')
+    +'<div class="field"><label>Registered Business Name *</label><input class="input" id="bpBusinessName" value="'+(d.businessName||'')+'"></div>'
+    +'<div class="field"><label>Business Registration No.</label><input class="input" id="bpBusinessRegNo" value="'+(d.businessRegNo||'')+'"></div>'
+    +'<div class="field"><label>Type of Ownership *</label><input class="input" id="bpOwnershipType" value="'+(d.ownershipType||'')+'" placeholder="Sole proprietor / Company / Partnership"></div>'
     +fieldRow('Commencement Date','date','')
-    +fieldRow('Number of Employees','number','')
+    +'<div class="field"><label>Number of Employees</label><input class="input" id="bpEmployees" type="number" value="'+(d.employeeCount||'')+'"></div>'
     +'</div>'
     +'<div style="font-size:var(--text-xs);background:color-mix(in srgb,var(--color-blue) 8%,transparent);border-radius:var(--radius-md);padding:var(--space-2);margin-top:var(--space-3)">One applicant account can manage many businesses — this account will be reused for future applications, renewals, and amendments.</div>'
-    +mAct(['Cancel','btn-ghost','closeModal()'],['Continue to Premise & Location','btn-primary','closeModal();modalBPNewApplicationStep2()'])
+    +mAct(['Cancel','btn-ghost','closeModal()'],['Continue to Premise & Location','btn-primary','bpCaptureStep1();closeModal();modalBPNewApplicationStep2()'])
   );
 }
 
@@ -7459,31 +7697,40 @@ function bpApplicantAutofill(){
 }
 
 function modalBPNewApplicationStep2(){
+  var d = bpDraftLoad();
   openModal('Step 2 of 4 — Premise & Location',
     '<div style="display:flex;gap:4px;margin-bottom:var(--space-3)">'+[1,2,3,4].map(function(n){return '<div style="flex:1;height:4px;border-radius:99px;background:'+(n===2?'var(--color-primary)':'var(--color-border-muted)')+'"></div>';}).join('')+'</div>'
     +'<div class="form-grid">'
-    +fieldRow('Premise Name / Description *','text','e.g. Ground floor shop, Building X')
-    +'<div class="field"><label>Ward *</label><select class="select">'+ODA_JURISDICTION_BOUNDARY.map(function(b){return '<option>'+b.ward+'</option>';}).join('')+'</select></div>'
-    +fieldRow('Parcel / LR Number (if known)','text','e.g. LR-3310')
-    +fieldRow('Plot / Stall / Door / Floor','text','')
-    +selectRow('Ownership / Tenancy Status *',['Owner-occupied','Tenant — Lease Agreement','Tenant — Verbal/Informal (requires landlord letter)'])
+    +'<div class="field"><label>Premise Name / Description *</label><input class="input" id="bpPremiseName" value="'+(d.premise||'')+'" placeholder="e.g. Ground floor shop, Building X"></div>'
+    +'<div class="field"><label>Ward *</label><select class="select" id="bpWard">'+ODA_JURISDICTION_BOUNDARY.map(function(b){return '<option'+(d.ward===b.ward?' selected':'')+'>'+b.ward+'</option>';}).join('')+'</select></div>'
+    +'<div class="field"><label>Parcel / LR Number (if known)</label><input class="input" id="bpParcelNo" value="'+(d.parcel||'')+'" placeholder="e.g. LR-3310"></div>'
+    +'<div class="field"><label>Plot / Stall / Door / Floor</label><input class="input" id="bpStallDoorFloor" value="'+(d.stallDoorFloor||'')+'"></div>'
+    +'<div class="field"><label>Ownership / Tenancy Status *</label><select class="select" id="bpTenancy"><option'+(d.tenancy==='Owner-occupied'?' selected':'')+'>Owner-occupied</option><option'+(d.tenancy==='Tenant — Lease Agreement'?' selected':'')+'>Tenant — Lease Agreement</option><option'+(d.tenancy==='Tenant — Verbal/Informal (requires landlord letter)'?' selected':'')+'>Tenant — Verbal/Informal (requires landlord letter)</option></select></div>'
     +'</div>'
     +'<div class="field" style="margin-top:var(--space-2)"><label>Geolocate Premise *</label>'
     +'<button type="button" class="btn btn-secondary" style="width:100%" onclick="geolocateField(this)">&#128205; Geolocate — use current device location</button>'
     +'<div class="geolocate-result" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:4px">Required — pins the premise on the GIS map for inspection routing and compliance monitoring.</div></div>'
-    +mAct(['Back','btn-ghost','closeModal();modalBPNewApplicationStep1()'],['Continue to Category & Documents','btn-primary','closeModal();modalBPNewApplicationStep3()'])
+    +mAct(['Back','btn-ghost','bpCaptureStep2();closeModal();modalBPNewApplicationStep1()'],['Continue to Category & Documents','btn-primary','bpCaptureStep2();closeModal();modalBPNewApplicationStep3()'])
   );
 }
 
 function modalBPNewApplicationStep3(){
+  var d = bpDraftLoad();
   openModal('Step 3 of 4 — Category & Documents',
     '<div style="display:flex;gap:4px;margin-bottom:var(--space-3)">'+[1,2,3,4].map(function(n){return '<div style="flex:1;height:4px;border-radius:99px;background:'+(n===3?'var(--color-primary)':'var(--color-border-muted)')+'"></div>';}).join('')+'</div>'
     +'<div class="field"><label>Business Category *</label><select class="select" id="bpAppCategory" onchange="bpCategoryFieldsUpdate(this)">'
     +'<option value="">Select category…</option>'
-    +BP_CATEGORIES.map(function(c){return '<option value="'+c.code+'">'+c.label+'</option>';}).join('')
+    +BP_CATEGORIES.map(function(c){return '<option value="'+c.code+'"'+(d.category===c.code?' selected':'')+'>'+c.label+'</option>';}).join('')
     +'</select></div>'
+    +'<div style="font-weight:700;font-size:var(--text-xs);margin-top:var(--space-3)">If applicant lacks a prerequisite document, choose “Apply now”:</div>'
+    +'<div class="form-grid">'
+    +'<div class="field"><label>Food Handler Certificate</label><select class="select" id="bpDocFoodHandler"><option'+((d.docFoodHandler||'').indexOf('Have')===0?' selected':'')+'>Have document</option><option'+((d.docFoodHandler||'').indexOf('Apply now')===0?' selected':'')+'>Apply now (create Public Health application)</option></select></div>'
+    +'<div class="field"><label>Fire Clearance</label><select class="select" id="bpDocFireClearance"><option'+((d.docFireClearance||'').indexOf('Have')===0?' selected':'')+'>Have document</option><option'+((d.docFireClearance||'').indexOf('Apply now')===0?' selected':'')+'>Apply now (create Fire application)</option></select></div>'
+    +'<div class="field"><label>NEMA / Environmental</label><select class="select" id="bpDocNema"><option'+((d.docNema||'').indexOf('Have')===0?' selected':'')+'>Have document</option><option'+((d.docNema||'').indexOf('Apply now')===0?' selected':'')+'>Apply now (create Environment application)</option></select></div>'
+    +'<div class="field"><label>Liquor License (if applicable)</label><select class="select" id="bpDocLiquor"><option'+((d.docLiquor||'').indexOf('Have')===0?' selected':'')+'>Have document</option><option'+((d.docLiquor||'').indexOf('Apply now')===0?' selected':'')+'>Apply now (create Liquor application)</option></select></div>'
+    +'</div>'
     +'<div id="bpCategoryPreview" style="margin-top:var(--space-3)"></div>'
-    +mAct(['Back','btn-ghost','closeModal();modalBPNewApplicationStep2()'],['Continue to Fee & Payment','btn-primary','closeModal();modalBPNewApplicationStep4()'])
+    +mAct(['Back','btn-ghost','bpCaptureStep3();closeModal();modalBPNewApplicationStep2()'],['Continue to Fee & Payment','btn-primary','bpCaptureStep3();closeModal();modalBPNewApplicationStep4()'])
   );
 }
 
@@ -7505,8 +7752,9 @@ function bpCategoryFieldsUpdate(sel){
 }
 
 function modalBPNewApplicationStep4(){
+  var d = bpDraftLoad();
   var catSel = document.getElementById('bpAppCategory');
-  var catCode = catSel ? catSel.value : '';
+  var catCode = catSel ? catSel.value : (d.category||'');
   var cat = BP_CATEGORIES.find(function(c){return c.code===catCode;}) || BP_CATEGORIES[0];
   var relevantFees = BP_FEE_SCHEDULE.filter(function(f){
     if(cat.code==='BAR') return f.code.indexOf('ALC')===0 || f.code.indexOf('LIQ')===0;
@@ -7515,13 +7763,22 @@ function modalBPNewApplicationStep4(){
     if(cat.code==='BEAUTY') return f.code.indexOf('INSP-SALON')===0 || f.code==='INSP-BEAUTY';
     return f.code==='PREMISE-PREUSE';
   });
-  var total = relevantFees.reduce(function(s,f){return s+f.amount;},0) || 15000;
+  var baseTotal = relevantFees.reduce(function(s,f){return s+f.amount;},0) || 15000;
+  var addOnTotal = bpMissingDocumentApplicationFees(d);
+  var total = baseTotal + addOnTotal;
   openModal('Step 4 of 4 — Fee Calculation & Payment',
     '<div style="display:flex;gap:4px;margin-bottom:var(--space-3)">'+[1,2,3,4].map(function(n){return '<div style="flex:1;height:4px;border-radius:99px;background:'+(n===4?'var(--color-primary)':'var(--color-border-muted)')+'"></div>';}).join('')+'</div>'
     +'<div style="font-weight:700;font-size:var(--text-xs);margin-bottom:6px">Fees — derived from the Kisumu County Finance Act, 2026</div>'
     +'<div class="table-wrap"><table><thead><tr><th>Fee</th><th>Amount</th></tr></thead><tbody>'
     +(relevantFees.length?relevantFees.map(function(f){return '<tr><td style="font-size:11px">'+f.label+'</td><td style="font-weight:700">KES '+f.amount.toLocaleString()+'</td></tr>';}).join(''):'<tr><td style="font-size:11px">Single Business Permit — base fee</td><td style="font-weight:700">KES 15,000</td></tr>')
+    +(addOnTotal>0?'<tr><td style="font-size:11px">Missing-document application fees</td><td style="font-weight:700">KES '+addOnTotal.toLocaleString()+'</td></tr>':'')
     +'</tbody></table></div>'
+    +'<div style="font-size:var(--text-xs);margin-top:8px;background:var(--color-surface-offset);border-radius:var(--radius-md);padding:var(--space-3)">'
+    +'<strong>Application Summary:</strong><br>'
+    +'Applicant: '+(d.applicantName||'—')+' · Phone: '+(d.phone||'—')+'<br>'
+    +'Business: '+(d.businessName||'—')+' · Category: '+(cat?cat.label:'—')+'<br>'
+    +'Premise: '+(d.premise||'—')+' · Ward: '+(d.ward||'—')+' · Parcel: '+(d.parcel||'—')
+    +'</div>'
     +'<div style="text-align:right;font-weight:800;margin-top:8px">Total: KES '+total.toLocaleString()+'</div>'
     +'<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2)">An official receipt is generated only after confirmed payment. The application then proceeds to departmental review and inspection scheduling.</div>'
     +mAct(['Back','btn-ghost','closeModal();modalBPNewApplicationStep3()'],['Continue to Payment','btn-primary',"_bpSubmitNewApplication('"+cat.code+"',"+total+")"])
@@ -7529,11 +7786,13 @@ function modalBPNewApplicationStep4(){
 }
 
 function _bpSubmitNewApplication(catCode, total){
-  var nameEl = document.getElementById('bpAppName'), phoneEl = document.getElementById('bpAppPhone');
-  var applicantName = (nameEl&&nameEl.value) || 'New Applicant';
-  var phone = (phoneEl&&phoneEl.value) || '';
+  var draft = bpCaptureStep3();
+  draft = bpDraftLoad();
+  var applicantName = draft.applicantName || 'New Applicant';
+  var phone = draft.phone || '';
+  if(!confirmNationalIdLength(draft.idNo, 'Business permit applicant National ID')) return;
   var cat = BP_CATEGORIES.find(function(c){return c.code===catCode;}) || BP_CATEGORIES[0];
-  window._bpNewAppCtx = { applicantName:applicantName, phone:phone, category:catCode, total:total, depts:cat.depts };
+  window._bpNewAppCtx = { applicantName:applicantName, phone:phone, category:catCode, total:total, depts:cat.depts, draft:draft };
   closeModal();
   modalInitiateCollection('Business Permits', 'BP-NEW-'+Date.now(), applicantName, total, 'New business permit application fee', 'bpFinalizeNewApplication()');
 }
@@ -7542,14 +7801,35 @@ function bpFinalizeNewApplication(){
   var d = window._bpNewAppCtx;
   if(!d) return;
   var cat = BP_CATEGORIES.find(function(c){return c.code===d.category;}) || BP_CATEGORIES[0];
+  var dup = BP_APPLICATIONS.find(function(a){
+    return a.applicantName===d.applicantName
+      && a.category===d.category
+      && a.businessName===((d.draft&&d.draft.businessName) || (d.applicantName+"'s Business"))
+      && a.status!=='Rejected';
+  });
+  if(dup){ showToast('An existing application already exists: '+dup.id+'.'); return; }
   var id = 'BP-'+new Date().getFullYear()+'-'+String(BP_APPLICATIONS.length+1).padStart(4,'0');
   var deptStatus = {};
   cat.depts.forEach(function(dep){ deptStatus[dep] = 'Pending'; });
   BP_APPLICATIONS.push({
-    id:id, businessName:d.applicantName+"'s Business", applicantName:d.applicantName, applicantPhone:d.phone,
-    category:d.category, premise:'—', ward:'—', feeTotal:d.total, feePaid:true, stage:5, status:'P5 — Departmental Review',
+    id:id, businessName:((d.draft&&d.draft.businessName) || (d.applicantName+"'s Business")), applicantName:d.applicantName, applicantPhone:d.phone,
+    category:d.category, premise:(d.draft&&d.draft.premise)||'—', ward:(d.draft&&d.draft.ward)||'—', parcel:(d.draft&&d.draft.parcel)||'',
+    feeTotal:d.total, feePaid:true, stage:5, status:'P5 — Departmental Review',
     deptReviews:(function(){ var o={}; cat.depts.forEach(function(dep){ o[dep]={status:'Pending',officer:null,date:null,notes:''}; }); return o; })(),
+    deptStatus: deptStatus,
   });
+  registerApplicantInCitizenCRM({
+    name: d.applicantName,
+    phone: d.phone,
+    email: (d.draft&&d.draft.email)||'',
+    nationalId: (d.draft&&d.draft.idNo)||'',
+    kraPin: (d.draft&&d.draft.kraPin)||'',
+    type: ((d.draft&&d.draft.applicantType)==='Individual'?'Individual':'Business'),
+    service: 'Single Business Permit',
+  });
+  bpDraftClear();
+  logAudit('Business permit application submitted','Business Permits', id+' — '+d.applicantName+' — paid and routed to review.');
+  scheduleStateSync('bp-application-submitted');
   showToast('Application '+id+' submitted and paid — case routed to '+cat.depts.join(' → ')+'.');
 }
 
@@ -7937,7 +8217,7 @@ function renderMarkets(role){
   var cessToday = MKT_MARKETS.reduce(function(s,m){return s+m.dailyCess;},0);
 
   return pageHeader('Markets &amp; Allocation','Stalls, plots, and open-air market pitches — application, allocation, GIS registration, fees, and enforcement in one shared workflow.',
-    (canAllocate?'<button class="btn btn-secondary" onclick="modalMarketApplication()">+ New Application</button>':'')
+    (canAllocate?'<button class="btn btn-secondary" onclick="modalMarketRegister()">+ Register Market</button><button class="btn btn-secondary" onclick="modalMarketApplication()">+ New Application</button>':'')
     +(canCollect?'<button class="btn btn-primary" onclick="modalMarketCollectFee()">Collect Fee</button>':''))
 
   +'<div class="grid kpi-grid" style="margin-bottom:var(--space-4)">'
@@ -8082,20 +8362,107 @@ function modalMarketApplication(){
   openModal('Market Application',
     '<div style="font-weight:700;font-size:var(--text-xs);margin-bottom:var(--space-2)">Applicant Details</div>'
     +'<div class="form-grid">'
-    +fieldRow('Full Name *','text','')
-    +fieldRow('National ID / Passport *','text','')
-    +fieldRow('Phone Number *','tel','07XX XXX XXX')
-    +fieldRow('Business Type *','text','e.g. Vegetables, Second-hand Clothing, Fish Trading')
+    +'<div class="field"><label>Full Name *</label><input class="input" id="mktAppName"></div>'
+    +'<div class="field"><label>National ID / Passport *</label><input class="input" id="mktAppIdNo"></div>'
+    +'<div class="field"><label>Phone Number *</label><input class="input" id="mktAppPhone" type="tel" placeholder="07XX XXX XXX"></div>'
+    +'<div class="field"><label>Business Type *</label><input class="input" id="mktAppBizType" placeholder="e.g. Vegetables, Second-hand Clothing, Fish Trading"></div>'
     +'</div>'
     +'<div style="font-weight:700;font-size:var(--text-xs);margin:var(--space-3) 0 var(--space-2)">Preference</div>'
     +'<div class="form-grid">'
-    +'<div class="field"><label>Preferred Market *</label><select class="select">'+MKT_MARKETS.map(function(m){return '<option>'+m.name+'</option>';}).join('')+'</select></div>'
-    +selectRow('Preferred Unit Type *',['Stall','Plot','Open-Air Pitch','Temporary Vending (market-day only)'])
+    +'<div class="field"><label>Preferred Market *</label><select class="select" id="mktAppMarket">'+MKT_MARKETS.map(function(m){return '<option value="'+m.id+'">'+m.name+'</option>';}).join('')+'</select></div>'
+    +'<div class="field"><label>Preferred Unit Type *</label><select class="select" id="mktAppUnitType"><option>Stall</option><option>Plot</option><option>Open-Air Pitch</option><option>Temporary Vending (market-day only)</option></select></div>'
     +fieldRow('Supporting Documents','file','ID, business permit if applicable')
     +'</div>'
     +'<div style="font-size:var(--text-xs);background:color-mix(in srgb,var(--color-blue) 8%,transparent);border-radius:var(--radius-md);padding:var(--space-2);margin-top:var(--space-3)">Applications are verified by the Market Master before allocation. If no unit is vacant, the applicant is placed on the waitlist.</div>'
-    +mAct(['Cancel','btn-ghost','closeModal()'],['Submit Application','btn-primary',"closeModal();showToast('Application submitted — case number assigned and routed for verification.')"])
+    +mAct(['Cancel','btn-ghost','closeModal()'],['Submit Application','btn-primary',"_mktSubmitApplication()"])
   );
+}
+
+function modalMarketRegister(){
+  openModal('Register Market',
+    '<div class="form-grid">'
+    +'<div class="field"><label>Market Name *</label><input class="input" id="mktRegName" placeholder="e.g. Kibuye Main Market"></div>'
+    +'<div class="field"><label>Type *</label><select class="select" id="mktRegType"><option>Formal</option><option>Open-Air</option></select></div>'
+    +'<div class="field"><label>Ward (Registry) *</label><select class="select" id="mktRegWard">'+ODA_JURISDICTION_BOUNDARY.map(function(b){return '<option>'+b.ward+'</option>';}).join('')+'</select></div>'
+    +'<div class="field"><label>Total Units *</label><input class="input" id="mktRegUnits" type="number" value="50"></div>'
+    +'<div class="field"><label>Daily Cess (KES) *</label><input class="input" id="mktRegCess" type="number" value="50"></div>'
+    +'<div class="field"><label>Linked Parcel / Property (optional)</label><input class="input" id="mktRegParcel" placeholder="e.g. LR-3310"></div>'
+    +'</div>'
+    +mAct(['Cancel','btn-ghost','closeModal()'],['Register Market','btn-primary',"_mktRegisterMarketSubmit()"])
+  );
+}
+
+function _mktRegisterMarketSubmit(){
+  var name = (document.getElementById('mktRegName')||{}).value || '';
+  if(!name.trim()){ showToast('Market name is required.'); return; }
+  var ward = (document.getElementById('mktRegWard')||{}).value || '';
+  var boundary = ODA_JURISDICTION_BOUNDARY.find(function(b){ return b.ward===ward; });
+  var id = 'MKT-'+String(MKT_MARKETS.length+1).padStart(3,'0');
+  MKT_MARKETS.push({
+    id:id,
+    name:name.trim(),
+    type:(document.getElementById('mktRegType')||{}).value || 'Formal',
+    ward:ward,
+    totalUnits:+((document.getElementById('mktRegUnits')||{}).value)||0,
+    dailyCess:+((document.getElementById('mktRegCess')||{}).value)||0,
+    parcel:(document.getElementById('mktRegParcel')||{}).value || '',
+    lat: boundary ? boundary.lat : -0.0917,
+    lng: boundary ? boundary.lng : 34.7680,
+  });
+  logAudit('Market registered','Markets & Allocation', id+' — '+name+' ('+ward+')');
+  scheduleStateSync('market-registered');
+  closeModal();
+  showToast('Market '+name+' registered successfully.');
+  navigateTo('markets');
+}
+
+function _mktSubmitApplication(){
+  var name = (document.getElementById('mktAppName')||{}).value || '';
+  var idNo = (document.getElementById('mktAppIdNo')||{}).value || '';
+  var phone = (document.getElementById('mktAppPhone')||{}).value || '';
+  var bizType = (document.getElementById('mktAppBizType')||{}).value || '';
+  if(!name.trim() || !phone.trim()){ showToast('Applicant name and phone are required.'); return; }
+  if(!confirmNationalIdLength(idNo, 'Market applicant National ID')) return;
+  var marketId = (document.getElementById('mktAppMarket')||{}).value || '';
+  var unitType = (document.getElementById('mktAppUnitType')||{}).value || 'Stall';
+  var duplicate = MKT_APPLICATIONS.find(function(a){
+    return a.applicantName===name && a.phone===phone && a.marketId===marketId && a.status!=='Allocated';
+  });
+  if(duplicate){
+    showToast('Existing open market application found: '+duplicate.id+'.');
+    return;
+  }
+  var appId = 'MKA-'+new Date().getFullYear()+'-'+String(MKT_APPLICATIONS.length+1).padStart(4,'0');
+  MKT_APPLICATIONS.unshift({
+    id: appId,
+    applicantName: name,
+    nationalId: idNo,
+    phone: phone,
+    businessType: bizType,
+    marketId: marketId,
+    preferredType: unitType,
+    status: 'Pending Verification',
+    requestedDate: new Date().toLocaleDateString('en-KE'),
+  });
+  MKT_WAITLIST.unshift({
+    id: 'MWL-'+String(MKT_WAITLIST.length+1).padStart(4,'0'),
+    applicantName: name,
+    preferredType: unitType,
+    marketId: marketId,
+    requestedDate: new Date().toLocaleDateString('en-KE'),
+  });
+  registerApplicantInCitizenCRM({
+    name: name,
+    phone: phone,
+    nationalId: idNo,
+    type: 'Individual',
+    service: 'Market Fees',
+  });
+  logAudit('Market application submitted','Markets & Allocation', appId+' — '+name+' for '+unitType);
+  scheduleStateSync('market-application-submitted');
+  closeModal();
+  showToast('Application submitted — case '+appId+' routed for verification.');
+  navigateTo('markets');
 }
 
 function modalStallAllocation(waitlistId, vacantAssetId){
@@ -8266,6 +8633,26 @@ const PARK_TOW_MATRIX = [
 // Violations / impound register — the full clamp→tow→impound→release chain
 const PARK_VIOLATIONS = [];
 
+function getCollectorParkingZones(){
+  if(!currentUser) return PARK_ZONES;
+  if(['admin','executive','finance'].includes(currentUser.role)) return PARK_ZONES;
+  if(Array.isArray(currentUser.parkingZones) && currentUser.parkingZones.length){
+    return PARK_ZONES.filter(function(z){ return currentUser.parkingZones.indexOf(z.id)>-1 || currentUser.parkingZones.indexOf(z.name)>-1; });
+  }
+  var storageKey = 'countycore_parking_zone_'+(currentUser.id||currentUser.name||'user');
+  var saved = localStorage.getItem(storageKey);
+  if(saved){
+    var ids = saved.split(',').map(function(x){ return x.trim(); }).filter(Boolean);
+    var mapped = PARK_ZONES.filter(function(z){ return ids.indexOf(z.id)>-1 || ids.indexOf(z.name)>-1; });
+    if(mapped.length) return mapped;
+  }
+  if(!PARK_ZONES.length) return [];
+  var idx = Math.abs(String(currentUser.name||'collector').split('').reduce(function(s,ch){ return s+ch.charCodeAt(0); },0)) % PARK_ZONES.length;
+  var assigned = PARK_ZONES[idx];
+  localStorage.setItem(storageKey, assigned.id);
+  return [assigned];
+}
+
 function renderParking(role){
   const canCollect = ['admin','officer','cashier','enforcer'].includes(role);
   const canEnforce = ['admin','officer','enforcer'].includes(role);
@@ -8390,13 +8777,19 @@ function modalParkingZoneDetail(zoneId){
 
 // ── Ticketing ───────────────────────────────────────────────────────────
 function modalParkingTicket(){
+  var allowedZones = getCollectorParkingZones();
+  if(!allowedZones.length){
+    showToast('No parking zone is assigned to this collector account.');
+    return;
+  }
   openModal('Issue Parking Ticket',
     '<div class="form-grid">'
     +'<div class="field"><label>Vehicle Number Plate *</label><input class="input" id="parkTicketPlate" placeholder="e.g. KAB 123X"></div>'
-    +'<div class="field"><label>Zone *</label><select class="select" id="parkTicketZone">'+PARK_ZONES.map(function(z){return '<option value="'+z.id+'" data-rate="'+z.tariffHour+'">'+z.name+'</option>';}).join('')+'</select></div>'
+    +'<div class="field"><label>Zone *</label><select class="select" id="parkTicketZone">'+allowedZones.map(function(z){return '<option value="'+z.id+'" data-rate="'+z.tariffHour+'">'+z.name+'</option>';}).join('')+'</select></div>'
     +'<div class="field"><label>Duration (hours) *</label><input class="input" type="number" id="parkTicketHours" value="1"></div>'
     +fieldRow('Driver Phone Number *','tel','07XX XXX XXX')
     +'</div>'
+    +'<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:4px">Collector zone scope: '+allowedZones.map(function(z){return z.name;}).join(', ')+'</div>'
     +'<div id="parkExemptionCheck" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2)"></div>'
     +mAct(['Cancel','btn-ghost','closeModal()'],['Send M-Pesa Push','btn-primary',"_parkConfirmTicket()"])
   );
@@ -8405,6 +8798,11 @@ function _parkConfirmTicket(){
   var plate = (document.getElementById('parkTicketPlate')||{}).value || 'Unknown Plate';
   var zoneSel = document.getElementById('parkTicketZone');
   var zoneId = zoneSel ? zoneSel.value : null;
+  var allowedZones = getCollectorParkingZones().map(function(z){ return z.id; });
+  if(allowedZones.length && allowedZones.indexOf(zoneId)===-1){
+    showToast('This collector can only issue tickets in assigned zones.', true);
+    return;
+  }
   var rate = zoneSel ? parseFloat(zoneSel.selectedOptions[0].getAttribute('data-rate'))||0 : 0;
   var hours = parseFloat((document.getElementById('parkTicketHours')||{}).value) || 1;
   var amount = rate*hours;
@@ -11818,8 +12216,44 @@ function modalCessWaiverApply(){
     +fieldRow('Gazette / Legal Notice Reference *','text','')
     +'</div>'
     +'<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2)">Every waiver requires an approval authority, effective dates, and a full audit trail before it becomes active.</div>'
-    +mAct(['Cancel','btn-ghost','closeModal()'],['Submit for Approval','btn-primary',"closeModal();logAudit('Cess waiver submitted','Cess & Mineral Royalties','Submitted for CECM Finance approval.');showToast('Waiver application submitted to CECM Finance for approval.')"])
+    +mAct(['Cancel','btn-ghost','closeModal()'],['Submit for Approval','btn-primary',"_cessSubmitWaiverApply()"])
   );
+}
+
+function _cessSubmitWaiverApply(){
+  var fields = document.querySelectorAll('#modal-body .input, #modal-body .select');
+  var type = (fields[0]||{}).value || 'Emergency Waiver';
+  var scope = (fields[1]||{}).value || '';
+  var effectiveFrom = (fields[2]||{}).value || '';
+  var effectiveTo = (fields[3]||{}).value || '';
+  var financialImpact = +((fields[4]||{}).value) || 0;
+  var gazetteRef = (fields[5]||{}).value || '';
+  if(!scope || !effectiveFrom || !effectiveTo || !gazetteRef){
+    showToast('Complete all waiver fields before submitting.', true);
+    return;
+  }
+  var actorName = currentUser ? currentUser.name : 'System';
+  var actorRole = currentUser ? currentUser.role : appState.role;
+  var id = 'CWV-'+new Date().getFullYear()+'-'+String(CESS_WAIVERS.length+1).padStart(4,'0');
+  CESS_WAIVERS.unshift({
+    id:id,
+    type:type,
+    scope:scope,
+    effectiveFrom:effectiveFrom,
+    effectiveTo:effectiveTo,
+    financialImpact:financialImpact,
+    gazetteRef:gazetteRef,
+    status:'Pending Approval',
+    requestedBy:actorName,
+    requestRole:actorRole,
+    approvedBy:'—',
+    approvedAt:null,
+  });
+  logAudit('Cess waiver submitted','Cess & Mineral Royalties', id+' submitted by '+actorName+' — pending CECM Finance approval.');
+  scheduleStateSync('cess-waiver-submitted');
+  closeModal();
+  showToast('Waiver '+id+' submitted for approval.');
+  navigateTo(appState.page);
 }
 
 function modalCessWaiverDetail(waiverId){
@@ -11830,12 +12264,42 @@ function modalCessWaiverDetail(waiverId){
     +'<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Type</div><div style="font-weight:700">'+w.type+'</div></div>'
     +'<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Scope</div><div>'+w.scope+'</div></div>'
     +'<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Effective</div><div>'+w.effectiveFrom+' → '+w.effectiveTo+'</div></div>'
+    +'<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Status</div><div><span class="badge '+(w.status==='Approved'?'success':w.status==='Pending Approval'?'warning':'error')+'">'+w.status+'</span></div></div>'
+    +'<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Requested By</div><div>'+(w.requestedBy||'—')+'</div></div>'
     +'<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Approved By</div><div>'+w.approvedBy+'</div></div>'
     +'<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Financial Impact</div><div style="font-weight:700">KES '+w.financialImpact.toLocaleString()+'</div></div>'
     +'<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Gazette Reference</div><div>'+w.gazetteRef+'</div></div>'
     +'</div>'
-    +mAct(['Close','btn-ghost','closeModal()'],(w.status!=='Revoked'?['Revoke Waiver','btn-danger',"_cessRevokeWaiver('"+w.id+"')"]:[]))
+    +mAct(
+      ['Close','btn-ghost','closeModal()'],
+      (w.status==='Pending Approval'?['Approve Waiver','btn-primary',"_cessApproveWaiver('"+w.id+"')"]:[]),
+      (w.status!=='Revoked'&&w.status!=='Pending Approval'?['Revoke Waiver','btn-danger',"_cessRevokeWaiver('"+w.id+"')"]:[])
+    )
   );
+}
+
+function _cessApproveWaiver(waiverId){
+  var w = CESS_WAIVERS.find(function(x){return x.id===waiverId;});
+  if(!w || w.status!=='Pending Approval') return;
+  var approverRole = currentUser ? currentUser.role : appState.role;
+  var approverName = currentUser ? currentUser.name : 'System';
+  if(approverName===w.requestedBy){
+    showToast('Requester cannot approve their own waiver.');
+    return;
+  }
+  if(approverRole!=='executive'){
+    showToast('Only CECM Finance (executive role) can approve waivers.');
+    return;
+  }
+  if(!requireDualApproval('fee_waiver', w.requestRole, approverRole, w.id, 'Cess waiver approved by CECM Finance.')) return;
+  w.status='Approved';
+  w.approvedBy=approverName;
+  w.approvedAt=new Date().toLocaleString('en-KE');
+  logAudit('Cess waiver approved','Cess & Mineral Royalties', w.id+' approved by '+approverName+'.');
+  scheduleStateSync('cess-waiver-approved');
+  closeModal();
+  showToast('Waiver '+w.id+' approved and activated.');
+  navigateTo(appState.page);
 }
 
 function _cessRevokeWaiver(waiverId){
@@ -12144,7 +12608,8 @@ function modalSRRingRegister(){
   openModal('Register Stock Ring / Auction Yard',
     '<div class="form-grid">'
     +fieldRow('Ring / Yard Name *','text','e.g. Kombewa Stock Ring')
-    +fieldRow('Ward *','text','')
+    +'<div class="field"><label>Ward (Registry) *</label><select class="select" id="srWardRegistry"><option value="">Select ward</option>'+ODA_JURISDICTION_BOUNDARY.map(function(b){return '<option>'+b.ward+'</option>';}).join('')+'</select></div>'
+    +'<div class="field"><label>Or Manual Ward Name</label><input class="input" id="srWardManual" placeholder="Use if ward is not listed"></div>'
     +fieldRow('Number of Gates *','number','1')
     +fieldRow('Holding Pens *','number','1')
     +fieldRow('Ring Master (Name) *','text','')
@@ -12159,7 +12624,7 @@ function modalSRRingRegister(){
 function _srConfirmRingRegister(){
   var inputs = document.querySelectorAll('#modal-body .input');
   var name = (inputs[0]||{}).value || 'New Stock Ring';
-  var ward = (inputs[1]||{}).value || '';
+  var ward = (document.getElementById('srWardRegistry')||{}).value || (document.getElementById('srWardManual')||{}).value || '';
   var gates = parseInt((inputs[2]||{}).value) || 1;
   var pens = parseInt((inputs[3]||{}).value) || 1;
   var ringMaster = (inputs[4]||{}).value || '';
@@ -12167,6 +12632,8 @@ function _srConfirmRingRegister(){
   var lng = parseFloat((inputs[6]||{}).value) || 34.7680;
   var id = 'SR-'+String(SR_RINGS.length+1).padStart(2,'0');
   SR_RINGS.push({id:id, name:name, ward:ward, lat:lat, lng:lng, gates:gates, pens:pens, ringMaster:ringMaster});
+  logAudit('Stock ring registered','Stock Ring Fees', id+' — '+name+' ('+ward+')');
+  scheduleStateSync('stock-ring-registered');
   closeModal();
   showToast('Stock Ring "'+name+'" registered.');
   navigateTo(appState.page);
@@ -13801,6 +14268,8 @@ function upsertLiquorParcelProfile(parcelOrProperty, applicant, ward, premise, b
 function _liqSubmitNewApplication(bpCaseId){
   var bp = bpCaseId ? BP_APPLICATIONS.find(function(a){return a.id===bpCaseId;}) : null;
   var applicant = (document.getElementById('liqAppApplicant')||{}).value || 'New Applicant';
+  var idNo = (document.getElementById('liqAppIdNo')||{}).value || '';
+  if(!confirmNationalIdLength(idNo, 'Liquor applicant National ID')) return;
   var business = (document.getElementById('liqAppBusiness')||{}).value || 'New Business';
   var catSel = document.getElementById('liqAppCategory');
   var category = catSel ? catSel.value : 'BAR';
@@ -13809,6 +14278,13 @@ function _liqSubmitNewApplication(bpCaseId){
   var wardSel = document.getElementById('liqAppWard');
   var ward = wardSel ? wardSel.value : '';
   if(!parcelInput.trim()){ showToast('Parcel / Property Number is required for liquor registration.'); return; }
+  var duplicate = LIQ_APPLICATIONS.find(function(a){
+    return a.applicant===applicant && a.businessName===business && a.parcel===parcelInput && a.status!=='Issued';
+  });
+  if(duplicate){
+    showToast('Existing open liquor application found: '+duplicate.id+'.');
+    return;
+  }
   var cat = LIQ_CATEGORIES.find(function(c){return c.code===category;});
   var boundary = ODA_JURISDICTION_BOUNDARY.find(function(b){return b.ward===ward;});
   var parcel = upsertLiquorParcelProfile(parcelInput, applicant, ward, premise, boundary);
@@ -13821,6 +14297,14 @@ function _liqSubmitNewApplication(bpCaseId){
     vetting:{nacada:'Pending', police:'Pending'}, inspection:null,
     issueDate:null, expiryDate:null
   });
+  registerApplicantInCitizenCRM({
+    name: applicant,
+    phone: (document.getElementById('liqAppPhone')||{}).value || '',
+    nationalId: idNo,
+    type: 'Business',
+    service: 'Liquor License',
+  });
+  logAudit('Liquor application submitted','Liquor Licence', id+' — '+business+' ('+ward+')');
   scheduleStateSync('liquor-application-created');
   closeModal();
   showToast('Liquor licence application '+id+' submitted'+(bp?' and linked to Business Permit '+bp.id:'')+' — routed for NACADA and Police vetting.');
@@ -15064,23 +15548,39 @@ const MODULE_TO_STREAM_CODE = {
 };
 
 function recordLedgerEntry(module, refId, description, amount, method, payer){
+  var normalizedAmount = +amount || 0;
+  var duplicate = CENTRAL_LEDGER.find(function(e){
+    if(e.module!==module) return false;
+    if(e.refId!==refId) return false;
+    if((+e.amount||0)!==normalizedAmount) return false;
+    if((e.method||'')!==(method||'—')) return false;
+    if((e.payer||'')!==(payer||'—')) return false;
+    var ts = Date.parse(e.createdAt || e.timestamp);
+    return Number.isFinite(ts) && (Date.now()-ts) < 120000;
+  });
+  if(duplicate){
+    logAudit('Duplicate payment prevented', module, 'Existing payment '+duplicate.ledgerId+' reused for '+refId+'.');
+    return duplicate;
+  }
   var entry = {
     ledgerId: 'LG-'+String(CENTRAL_LEDGER.length+1).padStart(6,'0'),
+    createdAt: new Date().toISOString(),
     timestamp: new Date().toLocaleString('en-KE'),
     module: module, refId: refId, description: description,
-    amount: amount, method: method||'—', payer: payer||'—',
+    amount: normalizedAmount, method: method||'—', payer: payer||'—',
     recordedBy: (typeof currentUser!=='undefined' && currentUser) ? currentUser.name : 'System',
   };
   CENTRAL_LEDGER.unshift(entry);
-  logAudit('Payment recorded', module, description+' — KES '+amount.toLocaleString()+' ('+refId+')');
+  logAudit('Payment recorded', module, description+' — KES '+normalizedAmount.toLocaleString()+' ('+refId+')');
   var streamCode = MODULE_TO_STREAM_CODE[module];
   if(streamCode){
     var stream = REVENUE_STREAMS.find(function(s){return s.code===streamCode;});
     if(stream){
-      stream.collected += (+amount)||0;
+      stream.collected += normalizedAmount;
       stream.pct = Math.min(999, Math.round(stream.collected/stream.target*100));
     }
   }
+  scheduleStateSync('ledger-entry-recorded');
   return entry;
 }
 
@@ -15912,6 +16412,7 @@ const PENALTY_RULES = [
   {id:'PEN-02', type:'multiplier', multiplier:2, trigger:'on_default', label:'Market fee non-payment — twice the charge', legalRef:'Finance Act 2026, Schedule — Markets'},
   {id:'PEN-03', type:'fixed', amount:500, trigger:'per_default', label:'Standard late-payment penalty', legalRef:'Finance Act 2026, General Provisions'},
 ];
+const FEE_ENGINE_APPROVAL_FLOW = ['CEO, Revenue Board','Chief Finance Officer','CECM Finance'];
 
 // Pulls every module's fee/tariff array into one normalized catalog.
 // Modules should request rates from here rather than owning their own —
@@ -16029,19 +16530,32 @@ function modalFeeEngineUpload(){
     +'<div class="field"><label>Version Label *</label><input class="input" id="feUploadVersion" placeholder="e.g. 2027.1"></div>'
     +fieldRow('Effective From *','date','')
     +fieldRow('Gazette / Legal Notice Reference *','text','')
+    +'<div class="field"><label>Base Penalty Rate (% per month) *</label><input class="input" id="fePenaltyMonthlyRate" type="number" value="'+currentPenaltyRateFromFinanceAct()+'"></div>'
+    +'<div class="field"><label>Standard Late Penalty (KES) *</label><input class="input" id="fePenaltyFlatAmount" type="number" value="'+((PENALTY_RULES.find(function(r){return r.type==='fixed';})||{}).amount||500)+'"></div>'
     +fieldRow('Upload Finance Act Document (PDF) *','file','',null,true)
     +'</div>'
-    +'<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2)">Routed to the County Executive or Finance Manager for maker-checker approval before activation. The current version remains active until approval is complete.</div>'
+    +'<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2)">Routed for approval in this order: '+FEE_ENGINE_APPROVAL_FLOW.join(' → ')+'. The uploader cannot approve or activate their own upload.</div>'
     +mAct(['Cancel','btn-ghost','closeModal()'],['Submit for Approval','btn-primary',"_feSubmitUpload()"])
   );
 }
 function _feSubmitUpload(){
   var title = (document.getElementById('feUploadTitle')||{}).value || 'Untitled Finance Act';
   var version = (document.getElementById('feUploadVersion')||{}).value || ('v'+(FEE_ENGINE_PENDING.length+1));
+  var monthlyPenalty = +((document.getElementById('fePenaltyMonthlyRate')||{}).value) || currentPenaltyRateFromFinanceAct();
+  var flatPenalty = +((document.getElementById('fePenaltyFlatAmount')||{}).value) || 500;
   var makerRole = (typeof currentUser!=='undefined' && currentUser) ? currentUser.role : 'unknown';
   var makerName = (typeof currentUser!=='undefined' && currentUser) ? currentUser.name : 'Unknown';
-  FEE_ENGINE_PENDING.push({ id:'FEP-'+(FEE_ENGINE_PENDING.length+1), title:title, version:version, makerRole:makerRole, makerName:makerName, status:'Pending Approval' });
+  FEE_ENGINE_PENDING.push({
+    id:'FEP-'+(FEE_ENGINE_PENDING.length+1),
+    title:title, version:version, makerRole:makerRole, makerName:makerName,
+    status:'Pending Approval',
+    approvals: [],
+    requiredApprovals: FEE_ENGINE_APPROVAL_FLOW.slice(),
+    monthlyPenalty: monthlyPenalty,
+    flatPenalty: flatPenalty,
+  });
   logAudit('Finance Act uploaded for review','Fee Engine', title+' ('+version+') submitted by '+makerName+' — pending maker-checker approval.');
+  scheduleStateSync('finance-act-uploaded');
   closeModal();
   showToast('New Finance Act submitted for review and approval. The active catalog remains unchanged until a different role approves it.');
   navigateTo('feeengine');
@@ -16052,29 +16566,71 @@ function _feSubmitUpload(){
 function modalFeeEnginePendingApprove(pendingId){
   var p = FEE_ENGINE_PENDING.find(function(x){return x.id===pendingId;});
   if(!p) return;
+  var nextApprover = p.requiredApprovals[(p.approvals||[]).length] || 'Completed';
   openModal('Review Pending Finance Act — '+p.title,
     '<div class="form-grid" style="margin-bottom:var(--space-3)">'
     +'<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Version</div><div style="font-weight:700">'+p.version+'</div></div>'
     +'<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Submitted By</div><div>'+p.makerName+' ('+(roles[p.makerRole]?roles[p.makerRole].label:p.makerRole)+')</div></div>'
     +'</div>'
-    +'<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-3)">Per the Build Rule, this can only be approved by a different role than the one that submitted it.</div>'
-    +mAct(['Cancel','btn-ghost','closeModal()'],['Reject','btn-danger',"_feDecidePending('"+p.id+"','reject')"],['Approve &amp; Activate','btn-primary',"_feDecidePending('"+p.id+"','approve')"])
+    +'<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-3)">Approval chain: '+(p.requiredApprovals||FEE_ENGINE_APPROVAL_FLOW).join(' → ')+'<br>Next required approval: <strong>'+nextApprover+'</strong><br>Per maker-checker rule, uploader cannot approve.</div>'
+    +mAct(['Cancel','btn-ghost','closeModal()'],['Reject','btn-danger',"_feDecidePending('"+p.id+"','reject')"],['Approve Next Stage','btn-primary',"_feDecidePending('"+p.id+"','approve')"])
   );
+}
+
+function feeEngineApprovalStageForRole(role){
+  if(role==='finance') return 'Chief Finance Officer';
+  if(role==='executive') return 'CECM Finance';
+  if(['director','chiefofficer','supervisor','admin'].includes(role)) return 'CEO, Revenue Board';
+  return '';
 }
 function _feDecidePending(pendingId, decision){
   var p = FEE_ENGINE_PENDING.find(function(x){return x.id===pendingId;});
   if(!p) return;
   var approverRole = (typeof currentUser!=='undefined' && currentUser) ? currentUser.role : 'unknown';
+  var approverName = (typeof currentUser!=='undefined' && currentUser) ? currentUser.name : 'Unknown';
   if(decision==='approve'){
+    if(approverName===p.makerName){ showToast('Uploader cannot approve this Finance Act.'); return; }
     if(!requireDualApproval('plan_approval_final', p.makerRole, approverRole, p.id, p.title+' approved by a different role than the uploader.')) return;
-    p.status = 'Approved';
-    FEE_ENGINE_VERSION.version = p.version; FEE_ENGINE_VERSION.actTitle = p.title; FEE_ENGINE_VERSION.status='Active';
-    FEE_ENGINE_VERSION.uploadedBy = p.makerName; FEE_ENGINE_VERSION.uploadedDate = new Date().toLocaleDateString('en-KE');
-    closeModal();
-    showToast(p.title+' approved and activated. Every module now reads from this version.');
+    var required = p.requiredApprovals || FEE_ENGINE_APPROVAL_FLOW;
+    var nextIdx = (p.approvals||[]).length;
+    var expectedStage = required[nextIdx];
+    var actorStage = feeEngineApprovalStageForRole(approverRole);
+    if(actorStage!==expectedStage){
+      showToast('This stage requires approval by '+expectedStage+'.');
+      return;
+    }
+    p.approvals.push({ stage: actorStage, by: approverName, role: approverRole, at: new Date().toLocaleString('en-KE') });
+    if(p.approvals.length >= required.length){
+      p.status = 'Approved';
+      FEE_ENGINE_HISTORY.unshift({
+        version: FEE_ENGINE_VERSION.version,
+        actTitle: FEE_ENGINE_VERSION.actTitle,
+        effectiveFrom: FEE_ENGINE_VERSION.effectiveFrom,
+        effectiveTo: new Date().toLocaleDateString('en-KE'),
+        status: 'Superseded',
+      });
+      FEE_ENGINE_VERSION.version = p.version;
+      FEE_ENGINE_VERSION.actTitle = p.title;
+      FEE_ENGINE_VERSION.status='Active';
+      FEE_ENGINE_VERSION.uploadedBy = p.makerName;
+      FEE_ENGINE_VERSION.uploadedDate = new Date().toLocaleDateString('en-KE');
+      var monthlyRule = PENALTY_RULES.find(function(r){ return r.type==='percent_monthly'; });
+      if(monthlyRule) monthlyRule.rate = p.monthlyPenalty || monthlyRule.rate;
+      var fixedRule = PENALTY_RULES.find(function(r){ return r.type==='fixed'; });
+      if(fixedRule) fixedRule.amount = p.flatPenalty || fixedRule.amount;
+      syncRevenueStreamsPenaltyFromFinanceAct();
+      closeModal();
+      showToast(p.title+' fully approved and activated. Revenue catalog and penalties updated from the approved Act.');
+    } else {
+      p.status = 'Pending '+required[p.approvals.length]+' Approval';
+      closeModal();
+      showToast('Approval recorded: '+actorStage+'. Next stage: '+required[p.approvals.length]+'.');
+    }
+    scheduleStateSync('finance-act-approved-stage');
   } else {
     p.status = 'Rejected';
     logAudit('Finance Act rejected','Fee Engine', p.title+' rejected by '+approverRole+'.');
+    scheduleStateSync('finance-act-rejected');
     closeModal();
     showToast(p.title+' rejected — remains in draft.');
   }
