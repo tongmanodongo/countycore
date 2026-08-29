@@ -9043,6 +9043,68 @@ function icStatusRows(ctx, target){
     + '</div>';
 }
 
+function parseCollectionActionArgs(argsText){
+  var text = (argsText || '').trim();
+  if(!text) return [];
+  var tokens = [];
+  var current = '';
+  var quote = null;
+  var escaped = false;
+  for(var i=0; i<text.length; i++){
+    var ch = text[i];
+    if(escaped){ current += ch; escaped = false; continue; }
+    if(quote){
+      if(ch==='\\'){ escaped = true; continue; }
+      if(ch===quote){ quote = null; current += ch; continue; }
+      current += ch;
+      continue;
+    }
+    if(ch==="'" || ch==='"'){ quote = ch; current += ch; continue; }
+    if(ch===','){ tokens.push(current.trim()); current=''; continue; }
+    current += ch;
+  }
+  if(current.trim()) tokens.push(current.trim());
+  return tokens.map(function(token){
+    var t = token.trim();
+    if(!t) return '';
+    if((t[0]==="'" && t[t.length-1]==="'") || (t[0]==='"' && t[t.length-1]==='"')){
+      var inner = t.slice(1,-1);
+      return inner.replace(/\\\\/g,'\\').replace(/\\'/g,"'").replace(/\\"/g,'"');
+    }
+    if(/^-?\d+(?:\.\d+)?$/.test(t)) return Number(t);
+    if(t==='true') return true;
+    if(t==='false') return false;
+    if(t==='null') return null;
+    if(t==='undefined') return undefined;
+    return t;
+  });
+}
+
+function runCollectionSuccessAction(action){
+  if(!action) return { ok:true, executed:false };
+  if(typeof action === 'function'){
+    action();
+    return { ok:true, executed:true };
+  }
+  if(typeof action !== 'string'){
+    return { ok:false, executed:false, error:'Unsupported payment callback type.' };
+  }
+  var src = action.trim();
+  if(!src) return { ok:true, executed:false };
+  var match = src.match(/^([A-Za-z_$][A-Za-z0-9_$]*)\s*\(([\s\S]*)\)\s*;?$/);
+  if(!match){
+    return { ok:false, executed:false, error:'Unsupported payment callback format: '+src };
+  }
+  var fnName = match[1];
+  var fn = window[fnName];
+  if(typeof fn !== 'function'){
+    return { ok:false, executed:false, error:'Payment callback function not found: '+fnName };
+  }
+  var args = parseCollectionActionArgs(match[2]);
+  fn.apply(null, args);
+  return { ok:true, executed:true };
+}
+
 // Shown when Card or eWallet resolves to a failed transaction — offers a
 // retry (back to the same method's entry step) or cancel.
 function icPaymentFailed(methodLabel, reason){
@@ -9072,7 +9134,12 @@ function icFinalizeSuccess(methodLabel){
   if(typeof logSMS==='function'){
     logSMS(_supportGuessPhone(ctx.payer), 'CountyCore: KES '+(+ctx.amount).toLocaleString()+' received for '+ctx.refId+'. Ref '+_lgEntry.ledgerId+'. Thank you.', ctx.refId, ctx.module, null, ctx.payer);
   }
-  if(ctx.onSuccessCode){ try{ (new Function(ctx.onSuccessCode))(); }catch(err){} }
+  var postAction = runCollectionSuccessAction(ctx.onSuccessCode);
+  if(!postAction.ok){
+    logAudit('Payment post-action failed', ctx.module||'Payments', (postAction.error||'Unknown callback failure')+' — '+ctx.refId);
+    showToast('Payment recorded, but next-step update failed: '+(postAction.error||'unknown error')+'.', true);
+  }
+  scheduleStateSync('payment-recorded');
   setTimeout(function(){ closeModal(); showToast('Payment confirmed via '+methodLabel+'. Invoice, payment, and receipt status updated and closed.'); navigateTo(appState.page); }, 900);
 }
 
@@ -13544,9 +13611,20 @@ const LIQ_ENFORCEMENT = [];
 // licensing decision, per the Alcoholic Drinks Control Act, 2014 s.32.
 const LIQ_ARC_CASES = [];
 
+function normalizeLiquorCaseWorkflow(l){
+  if(!l) return;
+  if(l.feePaid && l.stage < 6){
+    l.stage = 6;
+  }
+  if(l.stage === 6 && (!l.status || /Fee Pending/i.test(l.status))){
+    l.status = 'Fee Paid — Pending Committee Approval';
+  }
+}
+
 function renderLiquor(role){
   const canCollect = ['admin','officer','cashier','enforcer'].includes(role);
   const canApprove = ['admin','officer'].includes(role);
+  LIQ_APPLICATIONS.forEach(normalizeLiquorCaseWorkflow);
 
   var active = LIQ_APPLICATIONS.filter(function(l){return l.status==='Active';});
   var inVetting = LIQ_APPLICATIONS.filter(function(l){return l.stage>=1 && l.stage<=6;});
@@ -13665,6 +13743,9 @@ function locateLiquorOnMap(licId){
 // from there (change: Business Permits ↔ Liquor Licensing connection) ───
 function modalLiquorApplication(bpCaseId){
   var bp = bpCaseId && typeof BP_APPLICATIONS!=='undefined' ? BP_APPLICATIONS.find(function(a){return a.id===bpCaseId;}) : null;
+  var parcelOptions = (typeof GIS_PARCELS!=='undefined' ? GIS_PARCELS : []).map(function(p){
+    return '<option value="'+p.parcel+'">'+p.parcel+(p.titleNo?' · '+p.titleNo:'')+' · '+(p.owner||'')+'</option>';
+  }).join('');
   openModal('New Liquor Licence Application'+(bp?' — linked to '+bp.id:''),
     (bp?'<div style="background:color-mix(in srgb,var(--color-blue) 8%,transparent);border-radius:var(--radius-md);padding:var(--space-3);margin-bottom:var(--space-3);font-size:var(--text-xs)">'
       +'Linked to Business Permit <strong>'+bp.id+'</strong> — '+bp.businessName+'. Once this licence is issued, the Alcohol Licensing requirement on that business permit case will clear automatically.</div>':'')
@@ -13673,9 +13754,11 @@ function modalLiquorApplication(bpCaseId){
     +'<div class="field"><label>Business Name *</label><input class="input" id="liqAppBusiness" value="'+(bp?bp.businessName:'')+'"></div>'
     +'<div class="field"><label>Licence Category *</label><select class="select" id="liqAppCategory">'+LIQ_CATEGORIES.map(function(c){return '<option value="'+c.code+'">'+c.label+'</option>';}).join('')+'</select></div>'
     +'<div class="field"><label>Premises Location *</label><input class="input" id="liqAppPremise" value="'+(bp?bp.premise:'')+'"></div>'
+    +'<div class="field"><label>Parcel / Property Number *</label><input class="input" id="liqAppParcel" list="liqParcelOptions" value="'+(bp&&bp.parcel?bp.parcel:'')+'" placeholder="e.g. LR-9001"></div>'
     +'<div class="field"><label>Ward *</label><select class="select" id="liqAppWard">'+ODA_JURISDICTION_BOUNDARY.map(function(b){return '<option'+(bp&&bp.ward===b.ward?' selected':'')+'>'+b.ward+'</option>';}).join('')+'</select></div>'
     +'<div class="field"><label>Ownership / Lease Status *</label><select class="select" id="liqAppOwnership"><option>Owner-occupied</option><option>Tenant — Lease Agreement</option></select></div>'
     +'</div>'
+    +'<datalist id="liqParcelOptions">'+parcelOptions+'</datalist>'
     +'<div class="field" style="margin-top:var(--space-2)"><label>Geolocate Premises *</label>'
     +'<button type="button" class="btn btn-secondary" style="width:100%" onclick="geolocateField(this)">&#128205; Geolocate — use current device location</button>'
     +'<div class="geolocate-result" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:4px">Required — used for the restricted-zone distance check at inspection.</div></div>'
@@ -13688,6 +13771,33 @@ function modalLiquorApplication(bpCaseId){
   );
 }
 
+function upsertLiquorParcelProfile(parcelOrProperty, applicant, ward, premise, boundary){
+  var key = (parcelOrProperty||'').trim();
+  if(!key) return null;
+  var existing = GIS_PARCELS.find(function(p){
+    return (p.parcel && p.parcel.toUpperCase()===key.toUpperCase())
+      || (p.titleNo && p.titleNo.toUpperCase()===key.toUpperCase());
+  });
+  if(existing) return existing;
+  var ownerName = (applicant||'').split('/')[0].trim() || 'Liquor Applicant';
+  var created = {
+    parcel: key, titleNo: '', surveyMap: '',
+    owner: ownerName, ownerPin: '', ownerPhone: '', ownerEmail: '',
+    ward: ward||'', road: premise||'', zone: 'Zone B (Residential — KES 35/sqm)',
+    lpludpUse: 'Commercial', areaSqm: 0, storeys: 1,
+    groundCoverage: '', plotRatio: 0,
+    ratePerSqm: 35, annualRate: 0, ratesBalance: 0, ratesStatus: 'Paid',
+    ratesClearance: true, lastPaymentDate: '—',
+    lat: boundary ? boundary.lat : -0.0917, lng: boundary ? boundary.lng : 34.7680,
+    businesses: [], complianceFlags: [], advertisingAssets: [], publicHealth: [], liquorLicenses: [], buildingPermit: null,
+    caveats: [], sectionalProperties: [], parentParcel: null, childParcels: [],
+    exemption: { type:null, status:'None', approvedBy:null },
+  };
+  GIS_PARCELS.push(created);
+  logAudit('Parcel profile auto-created', 'GIS & Land Rates', key+' created from liquor licence registration.');
+  return created;
+}
+
 function _liqSubmitNewApplication(bpCaseId){
   var bp = bpCaseId ? BP_APPLICATIONS.find(function(a){return a.id===bpCaseId;}) : null;
   var applicant = (document.getElementById('liqAppApplicant')||{}).value || 'New Applicant';
@@ -13695,19 +13805,23 @@ function _liqSubmitNewApplication(bpCaseId){
   var catSel = document.getElementById('liqAppCategory');
   var category = catSel ? catSel.value : 'BAR';
   var premise = (document.getElementById('liqAppPremise')||{}).value || '';
+  var parcelInput = (document.getElementById('liqAppParcel')||{}).value || (bp&&bp.parcel?bp.parcel:'');
   var wardSel = document.getElementById('liqAppWard');
   var ward = wardSel ? wardSel.value : '';
+  if(!parcelInput.trim()){ showToast('Parcel / Property Number is required for liquor registration.'); return; }
   var cat = LIQ_CATEGORIES.find(function(c){return c.code===category;});
   var boundary = ODA_JURISDICTION_BOUNDARY.find(function(b){return b.ward===ward;});
+  var parcel = upsertLiquorParcelProfile(parcelInput, applicant, ward, premise, boundary);
   var id = 'LIQ-'+new Date().getFullYear()+'-'+String(LIQ_APPLICATIONS.length+1).padStart(4,'0');
   LIQ_APPLICATIONS.push({
-    id:id, bpCaseId:bpCaseId||null, parcel:(bp?bp.parcel:null), businessName:business, applicant:applicant,
-    category:category, premise:premise, ward:ward, lat:(boundary?boundary.lat:-0.0917), lng:(boundary?boundary.lng:34.7680),
+    id:id, bpCaseId:bpCaseId||null, parcel:(parcel?parcel.parcel:(bp?bp.parcel:null)), businessName:business, applicant:applicant,
+    category:category, premise:premise, ward:ward, lat:(parcel?parcel.lat:(boundary?boundary.lat:-0.0917)), lng:(parcel?parcel.lng:(boundary?boundary.lng:34.7680)),
     feeTotal:(cat?(cat.feeCode==='ALC-CLUB'?60000:cat.feeCode==='ALC-SUPER'?80000:cat.feeCode==='ALC-TEMP'?5000:60000):60000),
     feePaid:false, stage:3, status:'NACADA & Police Vetting',
     vetting:{nacada:'Pending', police:'Pending'}, inspection:null,
     issueDate:null, expiryDate:null
   });
+  scheduleStateSync('liquor-application-created');
   closeModal();
   showToast('Liquor licence application '+id+' submitted'+(bp?' and linked to Business Permit '+bp.id:'')+' — routed for NACADA and Police vetting.');
   navigateTo(bp?appState.page:'str-liquor');
@@ -13775,6 +13889,7 @@ function _liqSaveVetting(licId){
   l.vetting.nacada = nacadaEl ? nacadaEl.value : l.vetting.nacada;
   l.vetting.police = policeEl ? policeEl.value : l.vetting.police;
   if(l.vetting.nacada==='Cleared' && l.vetting.police==='Cleared'){ l.stage=4; l.status='Inspection Scheduled'; }
+  scheduleStateSync('liquor-vetting-updated');
   closeModal();
   showToast('Vetting outcome saved for '+l.id);
   navigateTo('str-liquor');
@@ -13823,6 +13938,7 @@ function _liqConfirmInspection(licId, inspectorName){
     l.stage = 10;
     l.status = 'Rejected — '+outcome;
   }
+  scheduleStateSync('liquor-inspection-recorded');
   closeModal();
   showToast('Inspection recorded for '+l.id+' by '+inspectorName+'. Case routed per outcome ('+outcome+').');
   navigateTo('str-liquor');
@@ -13838,7 +13954,9 @@ function modalLiquorFeePayment(licId){
 function _liqConfirmPayment(licId){
   var l = LIQ_APPLICATIONS.find(function(x){return x.id===licId;});
   if(!l) return;
-  l.feePaid = true; l.stage = 6;
+  l.feePaid = true; l.stage = 6; l.status = 'Fee Paid — Pending Committee Approval';
+  logAudit('Liquor licence fee paid','Liquor Licensing', l.id+' fee settled; routed to committee approval.');
+  scheduleStateSync('liquor-fee-paid');
 }
 
 // ── Committee Approval (spec 7.6) ─────────────────────────────────────────
@@ -13868,6 +13986,7 @@ function _liqCommitteeDecision(licId, decision){
     l.stage = 7; l.status = 'Approved — Pending Issuance';
     closeModal(); showToast('Application '+l.id+' approved — ready for licence issuance.');
   }
+  scheduleStateSync('liquor-committee-decision');
   navigateTo('str-liquor');
 }
 
@@ -13893,6 +14012,7 @@ function _liqArcFileSubmit(){
   var id = 'ARC-'+new Date().getFullYear()+'-'+String(LIQ_ARC_CASES.length+1).padStart(4,'0');
   LIQ_ARC_CASES.push({id:id, licId:l.id, businessName:l.businessName, appellant:appellant, grounds:grounds, originalDecision:l.status, status:'Filed', determination:null, dateFiled:new Date().toLocaleDateString('en-KE')});
   logAudit('ARC appeal filed','Liquor Licensing', id+' — '+l.id+' — '+grounds);
+  scheduleStateSync('liquor-arc-filed');
   closeModal();
   showToast('ARC case '+id+' filed against '+l.id+'.');
   navigateTo('str-liquor');
@@ -13918,6 +14038,7 @@ function _liqArcDetermine(caseId, determination){
     }
   }
   logAudit('ARC determination recorded','Liquor Licensing', c.id+' — '+determination);
+  scheduleStateSync('liquor-arc-determined');
   closeModal();
   showToast('ARC case '+c.id+' determined: '+determination+'.');
   navigateTo('str-liquor');
@@ -13962,6 +14083,7 @@ function _liqConfirmIssuance(licId, issueDateStr, expiryDateStr){
       clearedBpNote = ' Alcohol Licensing cleared on linked Business Permit '+bp.id+'.';
     }
   }
+  scheduleStateSync('liquor-issued');
   closeModal();
   showToast(l.id+' issued and Active.'+clearedBpNote);
   navigateTo('str-liquor');
@@ -14025,6 +14147,7 @@ function liqEscalateStage(caseId){
   if(!e) return;
   var nextStage = Math.min(e.stage+1, LIQ_ENFORCE_STAGES.length);
   e.stage = nextStage;
+  scheduleStateSync('liquor-enforcement-escalated');
   showToast(e.id+' escalated to stage '+nextStage+' — '+LIQ_ENFORCE_STAGES[nextStage-1]);
   navigateTo(appState.page);
 }
@@ -14036,6 +14159,7 @@ function liqCloseEnforcementCase(caseId){
   if(!e) return;
   e.closed = true;
   e.stage = LIQ_ENFORCE_STAGES.length;
+  scheduleStateSync('liquor-enforcement-closed');
 }
 
 // ════════════════════════════════════════════════════════════════════════
