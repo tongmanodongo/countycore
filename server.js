@@ -2470,10 +2470,7 @@ const server = http.createServer(async (req, res) => {
 
     if (
       url.pathname === "/" ||
-      url.pathname === "/countycore_v10.html" ||
-      url.pathname === "/countycore_v9.html" ||
-      url.pathname === "/countycore_v9-final.html" ||
-      url.pathname === "/countycore_v8.html"
+      url.pathname === "/countycore_v10.html"
     ) {
       const html = fs.readFileSync(FRONTEND_FILE, "utf8");
       sendText(res, 200, html, "text/html; charset=utf-8");

@@ -1,4 +1,4 @@
-Building a scalable backend for a web application like `countycore_v8.html` involves several steps, including designing the architecture, choosing the right technologies, implementing security measures, and ensuring data integrity. Below is a high-level overview of how to create a professional and scalable backend that can support multiple counties and millions of transactions, while ensuring that no user can delete any data.
+Building a scalable backend for a web application like `countycore_v10.html` involves several steps, including designing the architecture, choosing the right technologies, implementing security measures, and ensuring data integrity. Below is a high-level overview of how to create a professional and scalable backend that can support multiple counties and millions of transactions, while ensuring that no user can delete any data.
 
 ### 1. Architecture Design
 
