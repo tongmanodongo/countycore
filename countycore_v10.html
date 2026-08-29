@@ -1581,10 +1581,65 @@ const REVENUE_STREAMS = [
 ];
 
 const STREAM_CONFIG_REQUESTS = [];
+const RESPONSIBLE_DEPARTMENT_OPTIONS = Array.from(new Set(REVENUE_STREAMS.map(function(s){ return s.dept; }).concat([
+  'Land Rates','Business Permits','Markets','Markets & Parking','Finance & Treasury',
+]))).sort();
+const RESPONSIBLE_DEPARTMENT_REQUESTS = [];
 
 function currentPenaltyRateFromFinanceAct(){
   var monthly = PENALTY_RULES.find(function(r){ return r.type==='percent_monthly' && typeof r.rate==='number'; });
   return monthly ? monthly.rate : 3;
+}
+
+function downloadActiveFinanceAct(){
+  doExport('CountyCore_Finance_Act_'+String(FEE_ENGINE_VERSION.version||'active').replace(/[^A-Za-z0-9._-]/g,'_'), [
+    ['CountyCore — Active Finance Act'],
+    ['Act Title', FEE_ENGINE_VERSION.actTitle],
+    ['Version', FEE_ENGINE_VERSION.version],
+    ['Effective From', FEE_ENGINE_VERSION.effectiveFrom],
+    ['Gazette Reference', FEE_ENGINE_VERSION.gazetteRef],
+    ['Uploaded By', FEE_ENGINE_VERSION.uploadedBy],
+    ['Uploaded Date', FEE_ENGINE_VERSION.uploadedDate],
+    ['Status', FEE_ENGINE_VERSION.status],
+  ]);
+}
+
+function modalAddResponsibleDepartment(streamCode){
+  openModal('Add Responsible Department',
+    '<div class="form-grid">'
+    +'<div class="field"><label>Department Name *</label><input class="input" id="newResponsibleDept" placeholder="e.g. Waste Management"></div>'
+    +'<div class="field"><label>Linked Stream</label><input class="input" value="'+(streamCode||'General Request')+'" readonly style="background:var(--color-surface-offset)"></div>'
+    +'</div>'
+    +'<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2)">New responsible departments are submitted for approval before they become selectable.</div>'
+    +mAct(['Cancel','btn-ghost','closeModal()'],['Submit for Approval','btn-primary',"_submitResponsibleDepartmentRequest('"+(streamCode||'')+"')"])
+  );
+}
+
+function handleResponsibleDepartmentSelect(selectId, streamCode){
+  var el = document.getElementById(selectId);
+  if(el && el.value==='__add_new__'){
+    modalAddResponsibleDepartment(streamCode);
+  }
+}
+
+function _submitResponsibleDepartmentRequest(streamCode){
+  var name = (document.getElementById('newResponsibleDept')||{}).value || '';
+  if(!name.trim()){
+    showToast('Department name is required.');
+    return;
+  }
+  RESPONSIBLE_DEPARTMENT_REQUESTS.unshift({
+    id:'RDR-'+String(RESPONSIBLE_DEPARTMENT_REQUESTS.length+1).padStart(4,'0'),
+    name:name.trim(),
+    streamCode:streamCode || '',
+    requestedBy: currentUser ? currentUser.name : 'System',
+    status:'Pending Approval',
+    requestedAt:new Date().toLocaleString('en-KE'),
+  });
+  logAudit('Responsible department submitted','Revenue Streams', name.trim()+' submitted for approval'+(streamCode?' for '+streamCode:'')+'.');
+  scheduleStateSync('revenue-department-requested');
+  closeModal();
+  showToast(name.trim()+' submitted for approval.');
 }
 
 function syncRevenueStreamsPenaltyFromFinanceAct(){
@@ -1686,12 +1741,13 @@ function modalNewStream(){
     '<div class="form-grid">'
     + fieldRow('Stream Name *','text','e.g. Advertising Levy')
     + fieldRow('Stream Code *','text','e.g. AD-001')
-    + selectRow('Responsible Department',['Land Rates','Business Permits','Markets','Markets & Parking','Finance & Treasury'])
+    + '<div class="field"><label>Responsible Department</label><select class="select" id="revStreamDept" onchange="handleResponsibleDepartmentSelect(\'revStreamDept\', \'\')">'+RESPONSIBLE_DEPARTMENT_OPTIONS.map(function(d){ return '<option>'+d+'</option>'; }).join('')+'<option value="__add_new__">+ Add new department…</option></select></div>'
     + selectRow('Billing Frequency',['Annual','Monthly','Daily','One-off'])
     + fieldRow('FY Target (KES) *','number','0.00')
-    + fieldRow('Penalty Rate (%/month)','number','',currentPenaltyRateFromFinanceAct())
+    + '<div class="field"><label>Penalty Rate (%/month)</label><input class="input" type="number" value="'+currentPenaltyRateFromFinanceAct()+'" readonly style="background:var(--color-surface-offset)"></div>'
     + fieldRow('Grace Period (days)','number','30')
     + '</div>'
+    + '<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2)">Penalty rate is controlled by the approved Finance Act and cannot be edited here.</div>'
     + mAct(['Cancel','btn-ghost','closeModal()'],['Save Stream','btn-primary',"closeModal();showToast('Revenue stream saved.')"])
   );
 }
@@ -1706,13 +1762,13 @@ function openStreamConfig(code){
     '<div class="form-grid">'
     + fieldRow('Stream Name','text','',s.name)
     + fieldRow('Stream Code','text','',s.code)
-    + selectRow('Responsible Department',['Land Rates','Business Permits','Markets','Markets & Parking','Finance & Treasury'])
+    + '<div class="field"><label>Responsible Department</label><select class="select" id="streamDept_'+s.code+'" onchange="handleResponsibleDepartmentSelect(\'streamDept_'+s.code+'\', \''+s.code+'\')">'+RESPONSIBLE_DEPARTMENT_OPTIONS.map(function(d){ return '<option'+(d===s.dept?' selected':'')+'>'+d+'</option>'; }).join('')+'<option value="__add_new__">+ Add new department…</option></select></div>'
     + selectRow('Billing Frequency',['Annual','Monthly','Daily','One-off'])
     + fieldRow('FY Target (KES)','number','',s.target)
-    + fieldRow('Penalty Rate (%/month)','number','',String(s.penaltyRate||currentPenaltyRateFromFinanceAct()))
+    + '<div class="field"><label>Penalty Rate (%/month)</label><input class="input" type="number" value="'+String(s.penaltyRate||currentPenaltyRateFromFinanceAct())+'" readonly style="background:var(--color-surface-offset)"></div>'
     + '</div>'
     + '<div style="font-size:var(--text-xs);color:var(--color-text-muted);background:var(--color-surface-offset);border-radius:var(--radius-md);padding:var(--space-3);margin-top:var(--space-3)">'
-    + 'Changes to this stream route for approval: Department Director → Director → CFO → CECM Finance'
+    + 'Changes to this stream route for approval: Department Director → Director → CFO → CECM Finance. Penalty rate is inherited from the active Finance Act.'
     + '</div>'
     + mAct(['Cancel','btn-ghost','closeModal()'],['Submit for Approval','btn-primary',"_submitStreamConfigChange('"+s.code+"')"])
   );
@@ -1741,6 +1797,14 @@ function _submitStreamConfigChange(code){
 // ════════════════════════════════════════════════════════════════════════
 const CITIZENS = [];
 
+function citizenField(c, field){
+  if(!c) return '';
+  if(field==='nationalId') return c.nationalId || c.idNo || '';
+  if(field==='kraPin') return c.kraPin || (c.type==='Business' ? c.idNo || '' : '');
+  if(field==='businessName') return c.businessName || (c.type==='Business' ? c.name || '' : '');
+  return c[field] || '';
+}
+
 function normalizeDigits(value){
   return String(value||'').replace(/\D/g,'');
 }
@@ -1766,15 +1830,18 @@ function upsertCitizenProfile(profile){
     return (pin && c.pin===pin)
       || (phone && c.phone===phone)
       || (email && c.email===email)
-      || (nationalId && c.idNo===nationalId)
-      || (kraPin && c.idNo===kraPin);
+      || (nationalId && citizenField(c,'nationalId')===nationalId)
+      || (kraPin && citizenField(c,'kraPin')===kraPin);
   });
   if(existing){
     existing.name = profile.name || existing.name;
     existing.type = profile.type || existing.type || 'Individual';
+    if(existing.type==='Business') existing.businessName = profile.businessName || profile.name || existing.businessName || existing.name;
     existing.phone = phone || existing.phone || '';
     existing.email = email || existing.email || '';
     existing.idNo = nationalId || kraPin || existing.idNo || '';
+    if(nationalId) existing.nationalId = nationalId;
+    if(kraPin) existing.kraPin = kraPin;
     existing.services = Array.from(new Set((existing.services||[]).concat(profile.services||[])));
     if(profile.balance) existing.balance = profile.balance;
     return existing;
@@ -1783,7 +1850,10 @@ function upsertCitizenProfile(profile){
     pin: pin || ('KY-'+(80000+Math.floor(Math.random()*19999))),
     name: profile.name,
     type: profile.type || 'Individual',
+    businessName: (profile.type==='Business' ? (profile.businessName || profile.name) : ''),
     idNo: nationalId || kraPin || '',
+    nationalId: nationalId || '',
+    kraPin: kraPin || '',
     phone: phone || '',
     email: email || '',
     services: profile.services || [],
@@ -1795,11 +1865,124 @@ function upsertCitizenProfile(profile){
   return created;
 }
 
+function getCustomerConflicts(profile, excludePin){
+  if(!profile) return [];
+  var phone = (profile.phone || '').trim().toLowerCase();
+  var email = (profile.email || '').trim().toLowerCase();
+  var nationalId = (profile.nationalId || '').trim().toLowerCase();
+  var kraPin = (profile.kraPin || '').trim().toLowerCase();
+  var businessName = (profile.type==='Business' ? (profile.businessName || profile.name || '') : '').trim().toLowerCase();
+  var conflicts = [];
+  CITIZENS.forEach(function(c){
+    if(excludePin && c.pin===excludePin) return;
+    var fields = [];
+    if(phone && String(c.phone||'').trim().toLowerCase()===phone) fields.push('Phone Number');
+    if(email && String(c.email||'').trim().toLowerCase()===email) fields.push('Email Address');
+    if(nationalId && String(citizenField(c,'nationalId')||'').trim().toLowerCase()===nationalId) fields.push('National ID');
+    if(kraPin && String(citizenField(c,'kraPin')||'').trim().toLowerCase()===kraPin) fields.push('KRA PIN');
+    if(businessName && String(citizenField(c,'businessName')||'').trim().toLowerCase()===businessName) fields.push('Business Name');
+    if(fields.length){
+      conflicts.push({ customer: c, fields: fields });
+    }
+  });
+  return conflicts;
+}
+
+function findCitizenByAnyIdentifier(query){
+  var raw = String(query||'').trim();
+  if(!raw) return null;
+  var lower = raw.toLowerCase();
+  var digits = normalizeDigits(raw);
+  return CITIZENS.find(function(c){
+    return String(c.pin||'').toLowerCase()===lower
+      || String(c.phone||'').replace(/\D/g,'')===digits
+      || String(c.email||'').toLowerCase()===lower
+      || String(citizenField(c,'nationalId')||'').toLowerCase()===lower
+      || String(citizenField(c,'kraPin')||'').toLowerCase()===lower
+      || String(citizenField(c,'businessName')||'').toLowerCase()===lower
+      || String(c.name||'').toLowerCase()===lower;
+  }) || null;
+}
+
+function getCountyServiceOptions(){
+  var base = REVENUE_STREAMS.map(function(s){ return s.name; }).concat([
+    'Citizen CRM','GIS & Land Rates','Business Permits','Liquor License','Public Health & Sundry',
+    'Markets & Allocation','Parking Management','Support Center','Fire Licenses & Permits',
+    'Outdoor Advertising','Rents (County Property)','Cess & Mineral Royalties',
+  ]);
+  return Array.from(new Set(base)).sort();
+}
+
+function collectCitizenDocuments(customer){
+  if(!customer) return [];
+  var pin = customer.pin;
+  var phone = customer.phone || '';
+  var name = customer.name || '';
+  var docs = [];
+  function add(service, label, ref, status, openCode){
+    docs.push({ service: service, label: label, ref: ref, status: status || 'On File', openCode: openCode || '' });
+  }
+  if(typeof BILL_REGISTER!=='undefined'){
+    BILL_REGISTER.filter(function(b){
+      return b.pin===pin || (phone && b.phone===phone) || b.payer===name;
+    }).forEach(function(b){
+      add('Billing & Invoicing', 'Invoice / Bill', b.id, b.status || 'Issued', "modalBillDetail('"+b.id+"')");
+      if(b.status==='Paid') add('Billing & Invoicing', 'Receipt', 'Receipt for '+b.id, 'Generated', "previewReceipt('"+b.id+"','"+(b.payer||'').replace(/'/g,'')+"','KES "+(+b.amount||0).toLocaleString()+"')");
+    });
+  }
+  if(typeof generatedBills!=='undefined'){
+    generatedBills.filter(function(b){
+      return b.pin===pin || b.payer===name;
+    }).forEach(function(b){
+      add('Billing & Invoicing', 'Invoice / Bill', b.id, b.status || 'Issued', "modalBillDetail('"+b.id+"')");
+    });
+  }
+  if(typeof GIS_PARCELS!=='undefined'){
+    GIS_PARCELS.filter(function(p){
+      return p.ownerPin===pin || (phone && p.ownerPhone===phone) || p.owner===name;
+    }).forEach(function(p){
+      add('GIS & Land Rates', 'Parcel Profile', p.parcel, p.ratesStatus || 'Registered', "viewPropertyDetail('"+p.parcel+"')");
+    });
+  }
+  if(typeof BP_APPLICATIONS!=='undefined'){
+    BP_APPLICATIONS.filter(function(a){
+      return a.applicantPin===pin || (phone && a.applicantPhone===phone) || a.applicantName===name || a.businessName===citizenField(customer,'businessName');
+    }).forEach(function(a){
+      add('Business Permits', 'Permit Application', a.id, a.status || ('Stage '+a.stage), "modalBPCaseDetail('"+a.id+"')");
+      if(a.issueDate) add('Business Permits', 'Business Permit Certificate', a.id, 'Issued', "downloadBPCertificate('"+a.id+"')");
+    });
+  }
+  if(typeof LIQ_APPLICATIONS!=='undefined'){
+    LIQ_APPLICATIONS.filter(function(a){
+      return (a.bpCaseId && typeof BP_APPLICATIONS!=='undefined' && BP_APPLICATIONS.some(function(bp){ return bp.id===a.bpCaseId && (bp.applicantPin===pin || bp.applicantPhone===phone || bp.applicantName===name); }))
+        || a.applicant===name;
+    }).forEach(function(a){
+      add('Liquor License', 'Liquor Application', a.id, a.status || ('Stage '+a.stage), "modalLiquorCaseDetail('"+a.id+"')");
+    });
+  }
+  if(typeof PH_CASES!=='undefined'){
+    PH_CASES.filter(function(a){
+      return a.applicantPin===pin || a.applicant===name || (phone && a.phone===phone);
+    }).forEach(function(a){
+      add('Public Health & Sundry', 'Public Health Case', a.id, a.status || ('Stage '+a.stage), "modalPHCaseDetail('"+a.id+"')");
+    });
+  }
+  if(typeof ODA_ASSETS!=='undefined'){
+    ODA_ASSETS.filter(function(a){
+      return a.client===name || (pin && a.clientPin===pin);
+    }).forEach(function(a){
+      add('Outdoor Advertising', 'Advertising Permit', a.id, a.status || 'On File', "locateODAOnMap('"+a.id+"')");
+    });
+  }
+  return docs;
+}
+
 function registerApplicantInCitizenCRM(opts){
   var rec = upsertCitizenProfile({
     pin: opts && opts.pin,
     name: opts && opts.name,
     type: (opts && opts.type) || 'Individual',
+    businessName: opts && opts.businessName,
     nationalId: opts && opts.nationalId,
     kraPin: opts && opts.kraPin,
     phone: opts && opts.phone,
@@ -1823,7 +2006,7 @@ function sendCustomerOnboardingCredentials(customer){
   if(typeof logSMS==='function' && customer.phone){
     logSMS(customer.phone, msg, customer.pin, 'Citizen CRM', 'Delivered', customer.name);
   }
-  logAudit('Customer login details shared','Citizen CRM', customer.pin+' credentials shared to phone/email on file.');
+  logAudit('Customer login details shared','Citizen CRM', customer.pin+' credentials shared to '+(customer.phone||'no-phone')+' and '+(customer.email||'no-email')+'.');
   return { username: username, tempPassword: tempPassword };
 }
 
@@ -1857,16 +2040,59 @@ function renderCitizen(role){
 function viewCitizenProfile(pin){
   var c = CITIZENS.find(function(x){return x.pin===pin;});
   if(!c) return;
+  var docs = collectCitizenDocuments(c);
   openModal('Customer Profile — '+c.name,
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);font-size:var(--text-sm);margin-bottom:var(--space-4)">'
     + '<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">PIN</div><div style="font-weight:700">'+c.pin+'</div></div>'
     + '<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Type</div><div>'+c.type+'</div></div>'
-    + '<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Linked Services</div><div>'+c.services.join(', ')+'</div></div>'
+    + '<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Linked Services</div><div>'+(c.services&&c.services.length?c.services.join(', '):'None linked yet')+'</div></div>'
     + '<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Status</div><div><span class="badge '+(c.status==='Active'?'success':'error')+'">'+c.status+'</span></div></div>'
+    + '<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Phone / Email</div><div>'+(c.phone||'—')+' · '+(c.email||'—')+'</div></div>'
+    + '<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">National ID / KRA PIN</div><div>'+(citizenField(c,'nationalId')||'—')+' · '+(citizenField(c,'kraPin')||'—')+'</div></div>'
     + '<div style="grid-column:1/-1"><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Balance</div><div style="font-weight:700">'+c.balance+'</div></div>'
+    + '</div>'
+    + '<div class="card" style="padding:var(--space-3);margin-bottom:var(--space-3)"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><strong style="font-size:var(--text-xs)">Linked Services</strong><button class="btn btn-secondary" style="min-height:auto;padding:.35rem .7rem;font-size:var(--text-xs)" onclick="modalLinkCitizenService(\''+c.pin+'\')">Link Service</button></div>'
+    + (c.services&&c.services.length?'<div style="display:flex;flex-wrap:wrap;gap:6px">'+c.services.map(function(s){ return '<span class="badge info">'+s+'</span>'; }).join('')+'</div>':'<div style="font-size:var(--text-xs);color:var(--color-text-muted)">No services linked yet.</div>')
+    + '</div>'
+    + '<div class="card" style="padding:var(--space-3);margin-bottom:var(--space-3)"><div style="font-weight:700;font-size:var(--text-xs);margin-bottom:8px">Documents & Generated Records</div>'
+    + (docs.length
+      ? '<div class="table-wrap"><table><thead><tr><th>Service</th><th>Document</th><th>Reference</th><th>Status</th><th>Action</th></tr></thead><tbody>'
+        + docs.map(function(d){
+            return '<tr><td style="font-size:11px">'+d.service+'</td><td style="font-size:11px">'+d.label+'</td><td><strong>'+d.ref+'</strong></td><td>'+d.status+'</td><td>'+(d.openCode?smallBtn('Open','btn-secondary',d.openCode):'')+'</td></tr>';
+          }).join('')
+        + '</tbody></table></div>'
+      : '<div style="font-size:var(--text-xs);color:var(--color-text-muted)">No uploaded or generated service documents found for this profile yet.</div>')
     + '</div>'
     + mAct(['Close','btn-ghost','closeModal()'],['View Arrears','btn-primary',"closeModal();modalCitizenArrearsDetail('"+c.pin+"')"])
   );
+}
+
+function modalLinkCitizenService(pin){
+  var c = CITIZENS.find(function(x){ return x.pin===pin; });
+  if(!c) return;
+  var options = getCountyServiceOptions();
+  openModal('Link Service — '+c.name,
+    '<div class="form-grid">'
+    +'<div class="field"><label>County Service *</label><select class="select" id="citizenLinkService">'+options.map(function(service){
+      return '<option'+((c.services||[]).indexOf(service)>-1?' selected':'')+'>'+service+'</option>';
+    }).join('')+'</select></div>'
+    +'</div>'
+    +'<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2)">All county services are available from here for linking to the customer profile.</div>'
+    +mAct(['Cancel','btn-ghost','closeModal()'],['Link Service','btn-primary',"_confirmLinkCitizenService('"+pin+"')"])
+  );
+}
+
+function _confirmLinkCitizenService(pin){
+  var c = CITIZENS.find(function(x){ return x.pin===pin; });
+  if(!c) return;
+  var service = (document.getElementById('citizenLinkService')||{}).value || '';
+  if(!service){ showToast('Select a service to link.'); return; }
+  c.services = Array.from(new Set((c.services||[]).concat([service])));
+  logAudit('Customer service linked','Citizen CRM', c.pin+' linked to '+service+'.');
+  scheduleStateSync('citizen-service-linked');
+  closeModal();
+  showToast(service+' linked to '+c.name+'.');
+  viewCitizenProfile(pin);
 }
 
 // Profile-specific arrears preview — real popup scoped to this customer,
@@ -1930,6 +2156,19 @@ async function _citizenRegisterSubmit(){
   if(!name){ showToast('Please enter a name before registering.'); return; }
   if(!phone){ showToast('A phone number is required.'); return; }
   if(type==='Individual' && !confirmNationalIdLength(idNo, 'National ID')) return;
+  var localConflicts = getCustomerConflicts({
+    type: type,
+    name: name,
+    businessName: type==='Business' ? name : '',
+    phone: phone,
+    email: email,
+    nationalId: type==='Individual' ? idNo : '',
+    kraPin: type==='Business' ? idNo : '',
+  });
+  if(localConflicts.length){
+    showToast('Registration blocked — duplicate '+localConflicts[0].fields.join(', ')+' already exists for '+localConflicts[0].customer.pin+'.', true);
+    return;
+  }
 
   var pin = 'KY-'+(80000+Math.floor(Math.random()*19999));
   while(CITIZENS.some(function(c){return c.pin===pin;})){ pin = 'KY-'+(80000+Math.floor(Math.random()*19999)); }
@@ -1963,6 +2202,11 @@ async function _citizenRegisterSubmit(){
         showToast('Customer registration failed: ' + (vPayload.error || 'Validation error'), true);
         return;
       }
+      if (vPayload && vPayload.valid===false) {
+        var conflictText = (vPayload.conflicts||[]).map(function(c){ return c.field+': '+c.value; }).join(', ');
+        showToast('Customer registration failed — duplicate '+conflictText+'.', true);
+        return;
+      }
       // Save to backend
       const saveRes = await fetch('/api/customers', {
         method: 'POST',
@@ -1981,7 +2225,6 @@ async function _citizenRegisterSubmit(){
         if (listPayload.customers) CITIZENS.splice(0, CITIZENS.length, ...listPayload.customers);
       }
     } catch (err) {
-      // Fallback to local if backend unreachable
       CITIZENS.push(customer);
     }
   } else {
@@ -2162,7 +2405,7 @@ function renderBilling(role){
   const disputedBills = allBills.filter(function(b){return b.status==='Disputed'||b.status==='Voided';});
 
   return pageHeader('Billing &amp; Invoicing','Generate bills, manage reminders, and track receipts across all revenue streams.',
-    canBill ? '<button class="btn btn-secondary" onclick="modalBulkBilling()">Bulk Bill Generation</button><button class="btn btn-primary" onclick="modalGenerateBill()">Generate Bill</button>' : '')
+    canBill ? '<button class="btn btn-secondary" onclick="modalBulkBilling()">Bulk Bill Generation</button><button class="btn btn-primary" onclick="modalGenerateBill()">Generate Invoice</button>' : '')
   + '<div class="grid kpi-grid" style="margin-bottom:var(--space-4)">'
   + kpiModal('Paid',paidBills.length+' bills',formatBillingKpiAmount(paidBills.reduce(function(s,b){return s+b.amount;},0)),'trend-up','Recently Paid Bills',billListModalBody(paidBills))
   + kpiModal('Unpaid',unpaidBills.length+' bills',formatBillingKpiAmount(unpaidBills.reduce(function(s,b){return s+b.amount;},0)),'trend-warn','Unpaid Bills',billListModalBody(unpaidBills))
@@ -2257,6 +2500,11 @@ function _confirmBillPayment(billId){
 function confirmBillPayment(billId){
   var b = BILL_REGISTER.find(function(x){return x.id===billId;}) || generatedBills.find(function(x){return x.id===billId;});
   if(!b) return;
+  var ledgerMatch = CENTRAL_LEDGER.find(function(entry){ return entry.refId===billId; });
+  if(!ledgerMatch){
+    showToast('No confirmed payment exists for '+billId+'. Receipt and closure remain locked.', true);
+    return;
+  }
   openModal('Confirm Payment — '+billId,
     '<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-3)">Fetching payment record matching bill ID '+billId+'…</div>'
     + '<div style="background:var(--color-surface-offset);border-radius:var(--radius-md);padding:var(--space-3);margin-bottom:var(--space-3);font-size:var(--text-xs)">'
@@ -2314,15 +2562,17 @@ function renderPayerBilling(){
 }
 
 function modalGenerateBill(){
-  openModal('Generate Bill',
+  openModal('Generate Invoice / Bill',
     '<div class="form-grid">'
     + '<div class="field" style="grid-column:1/-1"><label>Taxpayer / PIN *</label><input class="input" id="genBillSearch" placeholder="Search by name or PIN…" oninput="genBillSearchLookup()"></div>'
     + '</div>'
     + '<div id="genBillMatch" style="font-size:var(--text-xs);color:var(--color-text-muted);margin:4px 0 var(--space-3)">Search existing taxpayer, or continue with an unregistered taxpayer and optionally register them.</div>'
     + '<div id="genBillFields" style="display:block">'
     + '<div class="form-grid">'
+    + '<div class="field"><label>Profile Type *</label><select class="select" id="genBillType"><option>Individual</option><option>Business</option></select></div>'
     + '<div class="field"><label>Taxpayer Name *</label><input class="input" id="genBillName"></div>'
     + '<div class="field"><label>PIN (if available)</label><input class="input" id="genBillPin" placeholder="KY-XXXXX"></div>'
+    + '<div class="field"><label>National ID / KRA PIN</label><input class="input" id="genBillIdRef" placeholder="National ID for individuals, KRA PIN for businesses"></div>'
     + '<div class="field"><label>Phone Number</label><input class="input" id="genBillPhone" type="tel" placeholder="07XX XXX XXX"></div>'
     + '<div class="field"><label>Email Address</label><input class="input" id="genBillEmail" type="email" placeholder="name@example.com"></div>'
     + '<div class="field"><label>Revenue Stream *</label><select class="select" id="genBillStream">'+REVENUE_STREAMS.map(function(s){return '<option>'+s.name+'</option>';}).join('')+'</select></div>'
@@ -2332,7 +2582,7 @@ function modalGenerateBill(){
     + '<div class="field" style="grid-column:1/-1"><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="genBillRegisterTaxpayer" style="accent-color:var(--color-primary)"> Taxpayer is not yet registered — create profile from this bill</label></div>'
     + '</div>'
     + '</div>'
-    + mAct(['Cancel','btn-ghost','closeModal()'],['Generate &amp; Send','btn-primary',"_genBillConfirm()"])
+    + mAct(['Cancel','btn-ghost','closeModal()'],['Generate &amp; Send Invoice','btn-primary',"_genBillConfirm()"])
   );
 }
 
@@ -2341,11 +2591,20 @@ function genBillSearchLookup(){
   var note = document.getElementById('genBillMatch');
   var fields = document.getElementById('genBillFields');
   if(!q){ note.textContent='Enter taxpayer details below for walk-in/unregistered billing, or keep searching.'; return; }
-  var match = CITIZENS.find(function(c){ return c.name.toLowerCase().indexOf(q)>-1 || c.pin.toLowerCase().indexOf(q)>-1; });
+  var match = CITIZENS.find(function(c){
+    return c.name.toLowerCase().indexOf(q)>-1
+      || c.pin.toLowerCase().indexOf(q)>-1
+      || String(c.phone||'').toLowerCase().indexOf(q)>-1
+      || String(c.email||'').toLowerCase().indexOf(q)>-1
+      || String(citizenField(c,'nationalId')||'').toLowerCase().indexOf(q)>-1
+      || String(citizenField(c,'kraPin')||'').toLowerCase().indexOf(q)>-1;
+  });
   if(match){
     note.innerHTML = '<span style="color:var(--color-success)">&#10003; Matched existing taxpayer — details prefilled below.</span>';
+    document.getElementById('genBillType').value = match.type || 'Individual';
     document.getElementById('genBillName').value = match.name;
     document.getElementById('genBillPin').value = match.pin;
+    document.getElementById('genBillIdRef').value = citizenField(match,'nationalId') || citizenField(match,'kraPin') || '';
     document.getElementById('genBillPhone').value = match.phone||'';
     document.getElementById('genBillEmail').value = match.email||'';
     var regChk = document.getElementById('genBillRegisterTaxpayer');
@@ -2356,8 +2615,10 @@ function genBillSearchLookup(){
 }
 
 function _genBillConfirm(){
+  var type = (document.getElementById('genBillType')||{}).value || 'Individual';
   var name = (document.getElementById('genBillName')||{}).value;
   var pin = (document.getElementById('genBillPin')||{}).value;
+  var idRef = (document.getElementById('genBillIdRef')||{}).value || '';
   var phone = (document.getElementById('genBillPhone')||{}).value || '';
   var email = (document.getElementById('genBillEmail')||{}).value || '';
   if(!name){ showToast('Please enter taxpayer name before generating bill.'); return; }
@@ -2374,14 +2635,17 @@ function _genBillConfirm(){
     var reg = registerApplicantInCitizenCRM({
       pin: pin || '',
       name: name,
-      type: 'Individual',
+      type: type,
+      businessName: type==='Business' ? name : '',
+      nationalId: type==='Individual' ? idRef : '',
+      kraPin: type==='Business' ? idRef : '',
       phone: phone,
       email: email,
       service: stream,
     });
     if(reg) sendCustomerOnboardingCredentials(reg);
   }
-  logAudit('Bill generated','Billing & Invoicing', id+' generated for '+name+' ('+stream+', KES '+amount.toLocaleString()+') and sent by SMS/email.');
+  logAudit('Bill generated','Billing & Invoicing', id+' invoice generated for '+name+' · stream '+stream+' · amount KES '+amount.toLocaleString()+' · due '+dueDate+'.');
   scheduleStateSync('bill-generated');
   closeModal();
   showToast('Bill '+id+' generated and sent to '+name+' by SMS and email.');
@@ -3460,9 +3724,9 @@ function modalNewProperty(){
     +'<div class="field"><label>Parcel / LR Number *</label><input class="input" id="npParcel" placeholder="e.g. LR-9001 or DAG/WARD/XXX"></div>'
     +'<div class="field"><label>Title Deed Number *</label><input class="input" id="npTitle" placeholder="e.g. IR/XXXXX or CR/XXXXX"></div>'
     +'<div class="field"><label>Survey Map Reference</label><input class="input" id="npSurvey" placeholder="e.g. LR-9001/1"></div>'
-    +'<div class="field"><label>Owner Name *</label><input class="input" id="npOwner"></div>'
-    +'<div class="field"><label>Owner PIN *</label><input class="input" id="npOwnerPin" placeholder="KY-XXXXX"></div>'
-    +'<div class="field"><label>Owner Phone *</label><input class="input" id="npOwnerPhone" placeholder="07XX XXX XXX"></div>'
+    +'<div class="field"><label>Owner Name *</label><input class="input" id="npOwner" onblur="gisOwnerAutofill()"></div>'
+    +'<div class="field"><label>Owner PIN *</label><input class="input" id="npOwnerPin" placeholder="KY-XXXXX" onblur="gisOwnerAutofill()"></div>'
+    +'<div class="field"><label>Owner Phone *</label><input class="input" id="npOwnerPhone" placeholder="07XX XXX XXX" onblur="gisOwnerAutofill()"></div>'
     +'<div class="field"><label>Owner Email</label><input class="input" id="npOwnerEmail" type="email"></div>'
     +'<div class="field"><label>Ward *</label><select class="select" id="npWard">'+ODA_JURISDICTION_BOUNDARY.map(function(b){return '<option>'+b.ward+'</option>';}).join('')+'</select></div>'
     +'<div class="field"><label>Road Frontage</label><input class="input" id="npRoad"></div>'
@@ -3476,8 +3740,29 @@ function modalNewProperty(){
     +'<button type="button" class="btn btn-secondary" style="width:100%" onclick="geolocateField(this)">&#128205; Geolocate — use current device location</button>'
     +'<div class="geolocate-result" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:4px">Requires device location to be enabled. Captured coordinates will pin this parcel on the Parcel Map.</div></div>'
     +'</div>'
+    +'<div id="npOwnerMatchNote" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:4px">Enter owner name, PIN, or phone number to auto-populate owner details from the citizen registry.</div>'
     +mAct(['Cancel','btn-ghost','closeModal()'],['Register Parcel','btn-primary',"_registerParcelSubmit(this)"])
   );
+}
+
+function gisOwnerAutofill(){
+  var note = document.getElementById('npOwnerMatchNote');
+  var match = findCitizenByAnyIdentifier((document.getElementById('npOwnerPin')||{}).value)
+    || findCitizenByAnyIdentifier((document.getElementById('npOwnerPhone')||{}).value)
+    || findCitizenByAnyIdentifier((document.getElementById('npOwner')||{}).value);
+  if(!match){
+    if(note) note.textContent = 'No existing owner profile found — this parcel will create or update the owner profile on save.';
+    return;
+  }
+  var owner = document.getElementById('npOwner');
+  var pin = document.getElementById('npOwnerPin');
+  var phone = document.getElementById('npOwnerPhone');
+  var email = document.getElementById('npOwnerEmail');
+  if(owner) owner.value = match.name || '';
+  if(pin) pin.value = match.pin || '';
+  if(phone) phone.value = match.phone || '';
+  if(email) email.value = match.email || '';
+  if(note) note.innerHTML = '<span style="color:var(--color-success)">&#10003; Registered owner found — details populated from '+match.pin+'.</span>';
 }
 
 function _registerParcelSubmit(btnEl){
@@ -3511,7 +3796,16 @@ function _registerParcelSubmit(btnEl){
     caveats: [], sectionalProperties: [], parentParcel: null, childParcels: [],
     exemption: {type:null, status:'None', approvedBy:null},
   });
+  registerApplicantInCitizenCRM({
+    pin: (document.getElementById('npOwnerPin')||{}).value || '',
+    name: (document.getElementById('npOwner')||{}).value || 'Unnamed Owner',
+    phone: (document.getElementById('npOwnerPhone')||{}).value || '',
+    email: (document.getElementById('npOwnerEmail')||{}).value || '',
+    type: 'Individual',
+    service: 'GIS & Land Rates',
+  });
   logAudit('Parcel registered','GIS & Land Rates', parcel+' — '+(document.getElementById('npOwner')||{}).value);
+  scheduleStateSync('parcel-registered');
   closeModal();
   showToast('Parcel '+parcel+' registered — annual rate KES '+annualRate.toLocaleString()+' calculated from zone rate × area.');
   navigateTo('gis');
@@ -7682,18 +7976,79 @@ function modalBPNewApplicationStep1(){
 
 function bpApplicantAutofill(){
   var idNo = document.getElementById('bpAppIdNo'), pin = document.getElementById('bpAppPin');
+  var phone = document.getElementById('bpAppPhone'), name = document.getElementById('bpAppName');
   var note = document.getElementById('bpAutofillNote');
   if(!note) return;
-  var q = (pin&&pin.value) || (idNo&&idNo.value);
+  var q = (pin&&pin.value) || (phone&&phone.value) || (idNo&&idNo.value) || (name&&name.value);
   if(!q) return;
-  var match = CITIZENS.find(function(c){ return c.pin.toUpperCase() === q.toUpperCase(); });
+  var match = findCitizenByAnyIdentifier(q);
   if(match){
     var nameEl = document.getElementById('bpAppName');
+    var phoneEl = document.getElementById('bpAppPhone');
+    var emailEl = document.getElementById('bpAppEmail');
+    var pinEl = document.getElementById('bpAppPin');
+    var idEl = document.getElementById('bpAppIdNo');
+    var bizEl = document.getElementById('bpBusinessName');
     if(nameEl) nameEl.value = match.name || '';
-    note.innerHTML = '<span style="color:var(--color-success)">&#10003; Matched an existing applicant — details auto-populated. Their other businesses will appear on this account.</span>';
+    if(phoneEl) phoneEl.value = match.phone || '';
+    if(emailEl) emailEl.value = match.email || '';
+    if(pinEl) pinEl.value = citizenField(match,'kraPin') || match.pin || '';
+    if(idEl && citizenField(match,'nationalId')) idEl.value = citizenField(match,'nationalId');
+    if(bizEl && citizenField(match,'businessName')) bizEl.value = citizenField(match,'businessName');
+    note.innerHTML = '<span style="color:var(--color-success)">&#10003; Matched an existing applicant — details auto-populated from '+match.pin+'.</span>';
   } else {
     note.textContent = 'No existing record found — a new applicant account will be created.';
   }
+}
+
+function bpParcelLookup(){
+  var parcelEl = document.getElementById('bpParcelNo');
+  var note = document.getElementById('bpParcelLookupNote');
+  if(!parcelEl || !note) return;
+  var raw = (parcelEl.value||'').trim();
+  if(!raw){
+    note.textContent = 'Parcel / LR Number is mandatory. If it exists in GIS, select the registered parcel to link the application.';
+    return;
+  }
+  var match = GIS_PARCELS.find(function(p){
+    return String(p.parcel||'').toLowerCase()===raw.toLowerCase() || String(p.titleNo||'').toLowerCase()===raw.toLowerCase();
+  });
+  if(match){
+    parcelEl.value = match.parcel;
+    var wardEl = document.getElementById('bpWard');
+    if(wardEl && match.ward) wardEl.value = match.ward;
+    note.innerHTML = '<span style="color:var(--color-success)">&#10003; Parcel found — '+match.parcel+' · '+match.owner+' · '+match.ward+'. This application will update the parcel profile and GIS map pin.</span>';
+  } else {
+    note.textContent = 'No GIS parcel match found yet — the entered parcel will still be stored on the application.';
+  }
+}
+
+function syncBusinessPermitToParcel(application){
+  if(!application || !application.parcel) return;
+  var parcel = GIS_PARCELS.find(function(p){ return p.parcel===application.parcel; });
+  if(!parcel) return;
+  if(!Array.isArray(parcel.businesses)) parcel.businesses = [];
+  var record = parcel.businesses.find(function(b){ return b.sbpId===application.id; });
+  var next = {
+    name: application.businessName,
+    sbpId: application.id,
+    floor: application.stallDoorFloor || 'Main premise',
+    sbpStatus: application.status || ('Stage '+application.stage),
+    sbpExpiry: application.expiryDate || '—',
+    sbpFee: application.feeTotal || 0,
+  };
+  if(record){
+    Object.assign(record, next);
+  } else {
+    parcel.businesses.unshift(next);
+  }
+}
+
+function bpSetStage(application, stage, status){
+  if(!application) return;
+  application.stage = stage;
+  application.status = status || (stage===14 ? 'Active' : stage===17 ? 'Suspended / Closed' : 'P'+stage+' — '+(BP_STAGES[stage-1]||'In Progress'));
+  syncBusinessPermitToParcel(application);
 }
 
 function modalBPNewApplicationStep2(){
@@ -7703,15 +8058,17 @@ function modalBPNewApplicationStep2(){
     +'<div class="form-grid">'
     +'<div class="field"><label>Premise Name / Description *</label><input class="input" id="bpPremiseName" value="'+(d.premise||'')+'" placeholder="e.g. Ground floor shop, Building X"></div>'
     +'<div class="field"><label>Ward *</label><select class="select" id="bpWard">'+ODA_JURISDICTION_BOUNDARY.map(function(b){return '<option'+(d.ward===b.ward?' selected':'')+'>'+b.ward+'</option>';}).join('')+'</select></div>'
-    +'<div class="field"><label>Parcel / LR Number (if known)</label><input class="input" id="bpParcelNo" value="'+(d.parcel||'')+'" placeholder="e.g. LR-3310"></div>'
+    +'<div class="field"><label>Parcel / LR Number *</label><input class="input" id="bpParcelNo" list="bpParcelOptions" value="'+(d.parcel||'')+'" placeholder="e.g. LR-3310" oninput="bpParcelLookup()" onblur="bpParcelLookup()"><datalist id="bpParcelOptions">'+GIS_PARCELS.map(function(p){return '<option value="'+p.parcel+'">'+p.owner+' · '+p.ward+'</option>';}).join('')+'</datalist></div>'
     +'<div class="field"><label>Plot / Stall / Door / Floor</label><input class="input" id="bpStallDoorFloor" value="'+(d.stallDoorFloor||'')+'"></div>'
     +'<div class="field"><label>Ownership / Tenancy Status *</label><select class="select" id="bpTenancy"><option'+(d.tenancy==='Owner-occupied'?' selected':'')+'>Owner-occupied</option><option'+(d.tenancy==='Tenant — Lease Agreement'?' selected':'')+'>Tenant — Lease Agreement</option><option'+(d.tenancy==='Tenant — Verbal/Informal (requires landlord letter)'?' selected':'')+'>Tenant — Verbal/Informal (requires landlord letter)</option></select></div>'
     +'</div>'
     +'<div class="field" style="margin-top:var(--space-2)"><label>Geolocate Premise *</label>'
     +'<button type="button" class="btn btn-secondary" style="width:100%" onclick="geolocateField(this)">&#128205; Geolocate — use current device location</button>'
     +'<div class="geolocate-result" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:4px">Required — pins the premise on the GIS map for inspection routing and compliance monitoring.</div></div>'
+    +'<div id="bpParcelLookupNote" style="font-size:var(--text-xs);color:var(--color-text-muted)">Parcel / LR Number is mandatory. If it exists in GIS, select the registered parcel to link the application.</div>'
     +mAct(['Back','btn-ghost','bpCaptureStep2();closeModal();modalBPNewApplicationStep1()'],['Continue to Category & Documents','btn-primary','bpCaptureStep2();closeModal();modalBPNewApplicationStep3()'])
   );
+  setTimeout(bpParcelLookup, 0);
 }
 
 function modalBPNewApplicationStep3(){
@@ -7791,6 +8148,10 @@ function _bpSubmitNewApplication(catCode, total){
   var applicantName = draft.applicantName || 'New Applicant';
   var phone = draft.phone || '';
   if(!confirmNationalIdLength(draft.idNo, 'Business permit applicant National ID')) return;
+  if(!String(draft.parcel||'').trim()){
+    showToast('Parcel / LR Number is mandatory for a Business Permit application.', true);
+    return;
+  }
   var cat = BP_CATEGORIES.find(function(c){return c.code===catCode;}) || BP_CATEGORIES[0];
   window._bpNewAppCtx = { applicantName:applicantName, phone:phone, category:catCode, total:total, depts:cat.depts, draft:draft };
   closeModal();
@@ -7811,24 +8172,33 @@ function bpFinalizeNewApplication(){
   var id = 'BP-'+new Date().getFullYear()+'-'+String(BP_APPLICATIONS.length+1).padStart(4,'0');
   var deptStatus = {};
   cat.depts.forEach(function(dep){ deptStatus[dep] = 'Pending'; });
-  BP_APPLICATIONS.push({
+  var matchedParcel = GIS_PARCELS.find(function(p){ return p.parcel===((d.draft&&d.draft.parcel)||''); });
+  var boundary = ODA_JURISDICTION_BOUNDARY.find(function(b){ return b.ward===((d.draft&&d.draft.ward)||''); });
+  var application = {
     id:id, businessName:((d.draft&&d.draft.businessName) || (d.applicantName+"'s Business")), applicantName:d.applicantName, applicantPhone:d.phone,
+    applicantPin:(d.draft&&d.draft.kraPin) || '',
     category:d.category, premise:(d.draft&&d.draft.premise)||'—', ward:(d.draft&&d.draft.ward)||'—', parcel:(d.draft&&d.draft.parcel)||'',
+    stallDoorFloor:(d.draft&&d.draft.stallDoorFloor)||'',
+    lat: matchedParcel ? matchedParcel.lat : (boundary ? boundary.lat : -0.0917),
+    lng: matchedParcel ? matchedParcel.lng : (boundary ? boundary.lng : 34.7680),
     feeTotal:d.total, feePaid:true, stage:5, status:'P5 — Departmental Review',
     deptReviews:(function(){ var o={}; cat.depts.forEach(function(dep){ o[dep]={status:'Pending',officer:null,date:null,notes:''}; }); return o; })(),
     deptStatus: deptStatus,
-  });
+  };
+  BP_APPLICATIONS.push(application);
   registerApplicantInCitizenCRM({
     name: d.applicantName,
     phone: d.phone,
     email: (d.draft&&d.draft.email)||'',
     nationalId: (d.draft&&d.draft.idNo)||'',
     kraPin: (d.draft&&d.draft.kraPin)||'',
+    businessName: (d.draft&&d.draft.businessName)||'',
     type: ((d.draft&&d.draft.applicantType)==='Individual'?'Individual':'Business'),
     service: 'Single Business Permit',
   });
+  syncBusinessPermitToParcel(application);
   bpDraftClear();
-  logAudit('Business permit application submitted','Business Permits', id+' — '+d.applicantName+' — paid and routed to review.');
+  logAudit('Business permit application submitted','Business Permits', id+' — '+d.applicantName+' — '+application.parcel+' — paid and routed to review.');
   scheduleStateSync('bp-application-submitted');
   showToast('Application '+id+' submitted and paid — case routed to '+cat.depts.join(' → ')+'.');
 }
@@ -7894,7 +8264,7 @@ function _bpProceedToInspection(caseId){
     showToast('Cannot proceed — not all departments have cleared this case yet.');
     return;
   }
-  a.stage = 6;
+  bpSetStage(a, 6);
   closeModal();
   showToast('All departments cleared — inspection scheduled for '+a.id+'.');
   navigateTo(appState.page);
@@ -7946,20 +8316,19 @@ function _bpConfirmInspection(caseId, inspectorName, dateStr){
   a.inspection = {status: inspStatus, date: dateStr, officer: inspectorName, notes: notes||undefined};
 
   if(outcome==='Pass'){
-    a.stage = 9;
+    bpSetStage(a, 9);
   } else if(outcome==='Pass with Conditions'){
-    a.stage = 9;
+    bpSetStage(a, 9);
     a.inspection.notes = (notes?notes+' — ':'')+'Approved with conditions; verify at renewal.';
   } else if(outcome==='Fail'){
-    a.stage = 8;
+    bpSetStage(a, 8, 'P8 — Compliance Correction');
   } else if(outcome==='Reinspection Required'){
-    a.stage = 7; // stays in Field Inspection until reinspected
+    bpSetStage(a, 7, 'P7 — Reinspection Required');
   } else if(outcome==='Escalate to Enforcement'){
     a.flagged = notes || 'Escalated to enforcement following failed field inspection.';
-    a.stage = 17; // Suspended / Closed
-    a.status = 'Suspended';
+    bpSetStage(a, 17, 'Suspended');
   } else if(outcome==='Refer to Another Department'){
-    a.stage = 5; // back to Departmental Review
+    bpSetStage(a, 5); // back to Departmental Review
   }
 
   closeModal();
@@ -7977,7 +8346,8 @@ function modalBPFeePayment(caseId){
 function _bpConfirmPayment(caseId){
   var a = BP_APPLICATIONS.find(function(x){return x.id===caseId;});
   if(!a) return;
-  a.feePaid = true; a.stage = 12;
+  a.feePaid = true;
+  bpSetStage(a, 12, 'P12 — Final Approval');
 }
 
 // ── Permit Issuance — QR + verification link + download ─────────────────
@@ -8006,7 +8376,7 @@ function modalBPIssuePermit(caseId){
 function _bpConfirmIssuance(caseId, issueDateStr, expiryDateStr){
   var a = BP_APPLICATIONS.find(function(x){return x.id===caseId;});
   if(!a) return;
-  a.stage = 14; a.status = 'Active';
+  bpSetStage(a, 14, 'Active');
   a.issueDate = issueDateStr; a.expiryDate = expiryDateStr;
   closeModal();
   showToast(a.id+' issued and Active. Certificate emailed to applicant.');
@@ -8362,11 +8732,12 @@ function modalMarketApplication(){
   openModal('Market Application',
     '<div style="font-weight:700;font-size:var(--text-xs);margin-bottom:var(--space-2)">Applicant Details</div>'
     +'<div class="form-grid">'
-    +'<div class="field"><label>Full Name *</label><input class="input" id="mktAppName"></div>'
-    +'<div class="field"><label>National ID / Passport *</label><input class="input" id="mktAppIdNo"></div>'
-    +'<div class="field"><label>Phone Number *</label><input class="input" id="mktAppPhone" type="tel" placeholder="07XX XXX XXX"></div>'
+    +'<div class="field"><label>Full Name *</label><input class="input" id="mktAppName" onblur="marketApplicantAutofill()"></div>'
+    +'<div class="field"><label>National ID / Passport *</label><input class="input" id="mktAppIdNo" onblur="marketApplicantAutofill()"></div>'
+    +'<div class="field"><label>Phone Number *</label><input class="input" id="mktAppPhone" type="tel" placeholder="07XX XXX XXX" onblur="marketApplicantAutofill()"></div>'
     +'<div class="field"><label>Business Type *</label><input class="input" id="mktAppBizType" placeholder="e.g. Vegetables, Second-hand Clothing, Fish Trading"></div>'
     +'</div>'
+    +'<div id="mktApplicantMatchNote" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:4px">Enter applicant name, ID, or phone to auto-populate from the citizen registry.</div>'
     +'<div style="font-weight:700;font-size:var(--text-xs);margin:var(--space-3) 0 var(--space-2)">Preference</div>'
     +'<div class="form-grid">'
     +'<div class="field"><label>Preferred Market *</label><select class="select" id="mktAppMarket">'+MKT_MARKETS.map(function(m){return '<option value="'+m.id+'">'+m.name+'</option>';}).join('')+'</select></div>'
@@ -8376,6 +8747,24 @@ function modalMarketApplication(){
     +'<div style="font-size:var(--text-xs);background:color-mix(in srgb,var(--color-blue) 8%,transparent);border-radius:var(--radius-md);padding:var(--space-2);margin-top:var(--space-3)">Applications are verified by the Market Master before allocation. If no unit is vacant, the applicant is placed on the waitlist.</div>'
     +mAct(['Cancel','btn-ghost','closeModal()'],['Submit Application','btn-primary',"_mktSubmitApplication()"])
   );
+}
+
+function marketApplicantAutofill(){
+  var note = document.getElementById('mktApplicantMatchNote');
+  var match = findCitizenByAnyIdentifier((document.getElementById('mktAppName')||{}).value)
+    || findCitizenByAnyIdentifier((document.getElementById('mktAppPhone')||{}).value)
+    || findCitizenByAnyIdentifier((document.getElementById('mktAppIdNo')||{}).value);
+  if(!match){
+    if(note) note.textContent = 'No existing citizen/business profile matched — application will create or update one on submit.';
+    return;
+  }
+  var name = document.getElementById('mktAppName');
+  var phone = document.getElementById('mktAppPhone');
+  var idNo = document.getElementById('mktAppIdNo');
+  if(name) name.value = match.name || '';
+  if(phone) phone.value = match.phone || '';
+  if(idNo && citizenField(match,'nationalId')) idNo.value = citizenField(match,'nationalId');
+  if(note) note.innerHTML = '<span style="color:var(--color-success)">&#10003; Applicant found in CRM — details loaded from '+match.pin+'.</span>';
 }
 
 function modalMarketRegister(){
@@ -16464,7 +16853,7 @@ function renderFeeEngine(role){
   +'<div class="card" style="margin-bottom:var(--space-4);border-left:3px solid var(--color-success)">'
   +'<div class="card-header"><div><div class="card-title">&#9989; Active Version — '+FEE_ENGINE_VERSION.actTitle+'</div>'
   +'<div class="card-meta">v'+FEE_ENGINE_VERSION.version+' · Effective '+FEE_ENGINE_VERSION.effectiveFrom+' · '+FEE_ENGINE_VERSION.gazetteRef+' · Uploaded by '+FEE_ENGINE_VERSION.uploadedBy+' on '+FEE_ENGINE_VERSION.uploadedDate+'</div></div>'
-  +'<span class="badge success">'+FEE_ENGINE_VERSION.status+'</span></div></div>'
+  +'<div style="display:flex;gap:6px;align-items:center"><button class="btn btn-secondary" style="min-height:auto;padding:.35rem .7rem;font-size:var(--text-xs)" onclick="modalFeeEngineHistory()">View</button><button class="btn btn-primary" style="min-height:auto;padding:.35rem .7rem;font-size:var(--text-xs)" onclick="downloadActiveFinanceAct()">Download</button><span class="badge success">'+FEE_ENGINE_VERSION.status+'</span></div></div></div>'
 
   +(function(){
       var pending = FEE_ENGINE_PENDING.filter(function(p){return p.status==='Pending Approval';});

@@ -970,6 +970,52 @@ function createSessionFromAuthUser(store, authUser, ipAddress) {
   return createSession(store, authUser, ipAddress);
 }
 
+function normalizeCustomerIdentity(customer) {
+  const type = customer.type || "Individual";
+  const name = customer.name || customer.businessName || "";
+  const businessName = type === "Business" ? (customer.businessName || customer.name || "") : "";
+  return {
+    id: customer.id || customer.pin || `CUST-${crypto.randomUUID().slice(0, 8)}`,
+    pin: customer.pin || customer.customerId || `KY-${Math.floor(80000 + Math.random() * 20000)}`,
+    name,
+    type,
+    businessName,
+    phone: customer.phone || "",
+    email: customer.email || "",
+    nationalId: customer.nationalId || "",
+    kraPin: customer.kraPin || "",
+    services: Array.isArray(customer.services) ? customer.services : [],
+    balance: customer.balance || "KES 0",
+    status: customer.status || "Active",
+    dateRegistered: customer.dateRegistered || new Date().toISOString().slice(0, 10),
+  };
+}
+
+function findCustomerConflicts(customers, customer, excludePin) {
+  const checks = [
+    { field: "phone", value: customer.phone },
+    { field: "email", value: customer.email },
+    { field: "nationalId", value: customer.nationalId },
+    { field: "kraPin", value: customer.kraPin },
+    ...(customer.type === "Business" && customer.businessName ? [{ field: "businessName", value: customer.businessName }] : []),
+  ].filter((entry) => entry.value && String(entry.value).trim());
+  const conflicts = [];
+  for (const check of checks) {
+    const match = (customers || []).find((entry) => {
+      if (excludePin && entry.pin === excludePin) return false;
+      return String(entry[check.field] || "").trim().toLowerCase() === String(check.value).trim().toLowerCase();
+    });
+    if (match) {
+      conflicts.push({
+        field: check.field,
+        value: check.value,
+        existing: match.name || match.businessName || match.pin,
+      });
+    }
+  }
+  return conflicts;
+}
+
 function parseLedgerEntry(payload, actorName) {
   if (!payload || typeof payload !== "object") {
     throw new Error("Ledger payload must be an object");
@@ -1540,31 +1586,20 @@ async function handleApi(req, res, url) {
         sendJson(res, 400, { error: "customer payload is required" });
         return;
       }
-      const normalized = {
-        id: customer.id || customer.pin || `CUST-${crypto.randomUUID().slice(0, 8)}`,
-        pin: customer.pin || customer.customerId || `KY-${Math.floor(80000 + Math.random() * 20000)}`,
-        name: customer.name || customer.businessName || "",
-        type: customer.type || "Individual",
-        businessName: customer.businessName || customer.name || "",
-        phone: customer.phone || "",
-        email: customer.email || "",
-        nationalId: customer.nationalId || "",
-        kraPin: customer.kraPin || "",
-        services: Array.isArray(customer.services) ? customer.services : [],
-        balance: customer.balance || "KES 0",
-        status: customer.status || "Active",
-        dateRegistered: customer.dateRegistered || new Date().toISOString().slice(0, 10),
-      };
+      const normalized = normalizeCustomerIdentity(customer);
       if (!normalized.name || !normalized.phone) {
         sendJson(res, 400, { error: "customer name and phone are required" });
         return;
       }
-      const existingIndex = (store.customers || []).findIndex((item) => item.pin === normalized.pin || item.phone === normalized.phone || item.email === normalized.email || item.nationalId === normalized.nationalId || item.kraPin === normalized.kraPin);
-      if (existingIndex >= 0) {
-        (store.customers || [])[existingIndex] = { ...(store.customers[existingIndex] || {}), ...normalized };
-      } else {
-        (store.customers || []).unshift(normalized);
+      const conflicts = findCustomerConflicts(store.customers || [], normalized);
+      if (conflicts.length) {
+        sendJson(res, 409, {
+          error: "Duplicate customer details detected.",
+          conflicts,
+        });
+        return;
       }
+      (store.customers || []).unshift(normalized);
       addAudit(store, session.user.name, "Customer record saved", "Citizen CRM", `${normalized.name} (${normalized.pin})`, requestIp(req));
       await writeStore(store);
       sendJson(res, 201, { customer: normalized, ok: true });
@@ -1579,19 +1614,8 @@ async function handleApi(req, res, url) {
       const session = requireSession(req, res, store);
       if (!session) return;
       const body = await parseJsonBody(req);
-      const customer = body.customer || body.record || body;
-      const fields = [
-        { key: "phone", value: customer.phone },
-        { key: "email", value: customer.email },
-        { key: "nationalId", value: customer.nationalId },
-        { key: "kraPin", value: customer.kraPin },
-        { key: "businessName", value: customer.businessName || customer.name },
-      ].filter((field) => field.value && String(field.value).trim());
-      const conflicts = [];
-      for (const field of fields) {
-        const match = (store.customers || []).find((entry) => String(entry[field.key] || "").toLowerCase() === String(field.value).trim().toLowerCase());
-        if (match) conflicts.push({ field: field.key, value: field.value, existing: match.name || match.businessName || match.pin });
-      }
+      const customer = normalizeCustomerIdentity(body.customer || body.record || body);
+      const conflicts = findCustomerConflicts(store.customers || [], customer);
       sendJson(res, 200, { valid: conflicts.length === 0, conflicts, message: conflicts.length ? "Duplicate customer details detected." : "Customer details are unique." });
     } catch (error) {
       sendJson(res, 400, { error: error.message });
