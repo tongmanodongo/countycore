@@ -541,7 +541,7 @@ let pendingOtpHint = null;
 
 const USERS = [
   { id:'admin01', name:'System Administrator', role:'admin', password:'Admin@2026', avatar:'SA', badge:'System Administrator', sub:'All Departments', last:'—', twoFA:true },
-  { id:'pay01',   name:'Citizen Account',      role:'payer', password:'Citizen@2026', avatar:'CA', badge:'Citizen / Business Payer', sub:'Self-Registered', last:'—', twoFA:true },
+  { id:'pay01',   name:'Citizen Account',      role:'payer', password:'Payer@2026', avatar:'CA', badge:'Citizen / Business Payer', sub:'Self-Registered', last:'—', twoFA:true },
 ];
 
 // ── ROLE HIERARCHY & PAGE PERMISSIONS ───────────────────────────────────────
@@ -1067,7 +1067,7 @@ function renderLoginStep() {
       <div id="loginErr" style="display:none;background:color-mix(in srgb,var(--color-error) 12%,transparent);color:var(--color-error);padding:var(--space-3);border-radius:var(--radius-md);font-size:var(--text-sm);margin-bottom:var(--space-3)"></div>
       <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="submitPassword()">Sign In →</button>
       <button onclick="loginStep='forgot';renderLoginStep()" style="width:100%;text-align:center;margin-top:var(--space-3);font-size:var(--text-xs);color:var(--color-primary);padding:var(--space-1);background:none;border:none;cursor:pointer">Forgot Password?</button>
-      <p style="text-align:center;font-size:var(--text-xs);color:var(--color-text-faint);margin-top:var(--space-3)">Demo: admin01 / Admin@2026 · pay01 / Citizen@2026</p>`;
+      <p style="text-align:center;font-size:var(--text-xs);color:var(--color-text-faint);margin-top:var(--space-3)">Demo: admin01 / Admin@2026 · pay01 / Payer@2026</p>`;
   }
   else if (loginStep === 'forgot') {
     const u = pendingUser;
@@ -1951,11 +1951,47 @@ const generatedBills = [];
 const BILL_REGISTER = [];
 const BILL_STATUSES = ['Due Soon','Paid','Issued','Overdue','Disputed','Voided'];
 
+function formatBillingKpiAmount(amount){
+  var value = Number(amount) || 0;
+  if(value >= 1000000) return 'KES '+(value/1000000).toFixed(1)+'M';
+  if(value >= 1000) return 'KES '+(value/1000).toFixed(1)+'K';
+  return 'KES '+value.toLocaleString();
+}
+
+function normalizeBillingRecord(raw){
+  var source = raw || {};
+  var amount = Number(source.amount);
+  if(!Number.isFinite(amount)){
+    amount = parseFloat(String(source.amount || '').replace(/[^0-9.]/g,'')) || 0;
+  }
+  var status = String(source.status || '').trim() || 'Issued';
+  if(status === 'Due' || status === 'Unpaid') status = 'Issued';
+  return {
+    id: String(source.id || source.invoiceId || source.billId || ('BILL-'+Date.now())),
+    payer: source.payer || source.customer || source.name || 'Unknown taxpayer',
+    pin: source.pin || '—',
+    stream: source.stream || source.revType || source.type || 'General',
+    amount: amount,
+    due: source.due || source.dueDate || source.dateDue || '—',
+    status: status,
+  };
+}
+
 function renderBilling(role){
   if(role==='payer') return renderPayerBilling();
 
   const canBill = ['admin','finance','officer','cashier'].includes(role);
-  const allBills = BILL_REGISTER.concat(generatedBills.map(function(b){return {id:b.id,payer:b.payer,pin:'—',stream:b.revType,amount:parseFloat((b.amount+'').replace(/[^0-9.]/g,''))||0,due:b.dueDate,status:b.status==='Paid'?'Paid':'Issued'};}));
+  const allBills = BILL_REGISTER.map(normalizeBillingRecord).concat(generatedBills.map(function(b){
+    return normalizeBillingRecord({
+      id: b.id,
+      payer: b.payer,
+      pin: b.pin || '—',
+      stream: b.revType,
+      amount: b.amount,
+      dueDate: b.dueDate,
+      status: b.status==='Paid' ? 'Paid' : 'Issued',
+    });
+  }));
   const paidBills = allBills.filter(function(b){return b.status==='Paid';});
   const unpaidBills = allBills.filter(function(b){return b.status==='Due Soon'||b.status==='Issued';});
   const overdueBills = allBills.filter(function(b){return b.status==='Overdue';});
@@ -1964,10 +2000,10 @@ function renderBilling(role){
   return pageHeader('Billing &amp; Invoicing','Generate bills, manage reminders, and track receipts across all revenue streams.',
     canBill ? '<button class="btn btn-secondary" onclick="modalBulkBilling()">Bulk Bill Generation</button><button class="btn btn-primary" onclick="modalGenerateBill()">Generate Bill</button>' : '')
   + '<div class="grid kpi-grid" style="margin-bottom:var(--space-4)">'
-  + kpiModal('Paid',paidBills.length+' bills','KES '+(paidBills.reduce(function(s,b){return s+b.amount;},0)/1e6).toFixed(1)+'M','trend-up','Recently Paid Bills',billListModalBody(paidBills))
-  + kpiModal('Unpaid',unpaidBills.length+' bills','KES '+(unpaidBills.reduce(function(s,b){return s+b.amount;},0)/1e6).toFixed(1)+'M','trend-warn','Unpaid Bills',billListModalBody(unpaidBills))
-  + kpiModal('Overdue (&gt;30d)',overdueBills.length+' bills','KES '+(overdueBills.reduce(function(s,b){return s+b.amount;},0)/1e6).toFixed(1)+'M','trend-bad','Overdue Bills (30+ days)',billListModalBody(overdueBills))
-  + kpiModal('Disputed / Voided',disputedBills.length+' bills','KES '+(disputedBills.reduce(function(s,b){return s+b.amount;},0)/1e6).toFixed(1)+'M','trend-warn','Disputed / Voided Bills',billListModalBody(disputedBills))
+  + kpiModal('Paid',paidBills.length+' bills',formatBillingKpiAmount(paidBills.reduce(function(s,b){return s+b.amount;},0)),'trend-up','Recently Paid Bills',billListModalBody(paidBills))
+  + kpiModal('Unpaid',unpaidBills.length+' bills',formatBillingKpiAmount(unpaidBills.reduce(function(s,b){return s+b.amount;},0)),'trend-warn','Unpaid Bills',billListModalBody(unpaidBills))
+  + kpiModal('Overdue (&gt;30d)',overdueBills.length+' bills',formatBillingKpiAmount(overdueBills.reduce(function(s,b){return s+b.amount;},0)),'trend-bad','Overdue Bills (30+ days)',billListModalBody(overdueBills))
+  + kpiModal('Disputed / Voided',disputedBills.length+' bills',formatBillingKpiAmount(disputedBills.reduce(function(s,b){return s+b.amount;},0)),'trend-warn','Disputed / Voided Bills',billListModalBody(disputedBills))
   + '</div>'
   + '<div class="card" style="margin-bottom:var(--space-4)">'
   + '<div class="card-header"><div><div class="card-title">Bill Register</div><div class="card-meta">Filter by status, stream, ward, or taxpayer</div></div></div>'
@@ -1984,7 +2020,7 @@ function renderBilling(role){
       } else if(b.status==='Paid'){
         actions = smallBtn('Receipt','btn-secondary',"previewReceipt('"+b.id+"','"+b.payer.replace(/'/g,"")+"','KES "+b.amount.toLocaleString()+"')");
       } else if(b.status==='Issued'){
-        actions = smallBtn('Confirm Payment','btn-primary',"confirmBillPayment('"+b.id+"')") + ' ' + smallBtn('Receipt','btn-secondary',"previewReceipt('"+b.id+"','"+b.payer.replace(/'/g,"")+"','KES "+b.amount.toLocaleString()+"')");
+        actions = smallBtn('Pay Now','btn-primary',"payBillNow('"+b.id+"','"+b.payer.replace(/'/g,"")+"',"+b.amount+")");
       } else if(b.status==='Overdue'){
         actions = smallBtn('Notice','btn-secondary',"previewNotice('"+b.id+"')");
       } else {
@@ -2049,15 +2085,19 @@ function _confirmBillPayment(billId){
   var b = BILL_REGISTER.find(function(x){return x.id===billId;}) || generatedBills.find(function(x){return x.id===billId;});
   if(!b) return;
   b.status = 'Paid';
+  scheduleStateSync('bill-payment-confirmed');
+  navigateTo(appState.page);
 }
 
 // Issued-status bills: fetch payment by bill ID, then mark paid.
 function confirmBillPayment(billId){
+  var b = BILL_REGISTER.find(function(x){return x.id===billId;}) || generatedBills.find(function(x){return x.id===billId;});
+  if(!b) return;
   openModal('Confirm Payment — '+billId,
     '<div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-3)">Fetching payment record matching bill ID '+billId+'…</div>'
     + '<div style="background:var(--color-surface-offset);border-radius:var(--radius-md);padding:var(--space-3);margin-bottom:var(--space-3);font-size:var(--text-xs)">'
     + '<span class="badge success">Match Found</span> Payment reference matches this bill.</div>'
-    + mAct(['Cancel','btn-ghost','closeModal()'],['Mark as Paid','btn-primary',"closeModal();showToast('"+billId+" confirmed and marked Paid. Receipt now available.')"])
+    + mAct(['Cancel','btn-ghost','closeModal()'],['Mark as Paid','btn-primary',"_confirmBillPayment('"+billId+"');closeModal();showToast('"+billId+" confirmed and marked Paid. Receipt now available.')"])
   );
 }
 
@@ -9038,7 +9078,7 @@ function icFinalizeSuccess(methodLabel){
 
 function openSTKPush(billId, payer, amount){
   const billOptions = ['-- Select Bill Type --','Property Rates','Business Permit','Market Stall Fee','Land Rent','Parking Fee','Tourism Levy','Penalty & Interest','Other'];
-  openModal('&#128242; Initiate Collection — M-Pesa', `
+  openModal('📲 Initiate Collection — M-Pesa', `
     <p style="color:var(--color-text-muted);font-size:var(--text-sm);margin-bottom:var(--space-4)">Send a payment prompt directly to the payer's phone.</p>
     <div class="form-grid" id="stkForm">
       <div class="field"><label>Payer PIN / Name *</label><input id="stk_payer" class="input" placeholder="e.g. KY-88314 or Name" value="${payer&&!payer.startsWith('07')?payer:''}"></div>
@@ -11034,10 +11074,10 @@ function renderAudit(role){
   + '<select class="select"><option>All Actions</option><option>Login</option><option>Bill Generated</option><option>Payment Confirmed</option><option>Waiver Approved</option><option>User Created</option></select>'
   + '<input class="input" type="date" style="max-width:160px">'
   + '<button class="btn btn-primary" onclick="applyPageFilter(\'audit\')">Apply Filter</button></div>'
-  + '<div class="table-wrap"><table><thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Module</th><th>Details</th></tr></thead><tbody>'
+  + '<div class="table-wrap"><table><thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Module</th><th>IP Address</th><th>Details</th></tr></thead><tbody>'
   + (log.length ? log.map(function(a){
-      return '<tr><td style="font-size:var(--text-xs)">'+a.timestamp+'</td><td><strong>'+a.actor+'</strong></td><td>'+a.action+'</td><td>'+a.module+'</td><td style="font-size:var(--text-xs);color:var(--color-text-muted)">'+(a.details||'')+'</td></tr>';
-    }).join('') : '<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--color-text-muted);font-size:var(--text-xs)">No audit events recorded yet.</td></tr>')
+      return '<tr><td style="font-size:var(--text-xs)">'+a.timestamp+'</td><td><strong>'+a.actor+'</strong></td><td>'+a.action+'</td><td>'+a.module+'</td><td style="font-size:var(--text-xs)">'+(a.ipAddress||'unknown')+'</td><td style="font-size:var(--text-xs);color:var(--color-text-muted)">'+(a.details||'')+'</td></tr>';
+    }).join('') : '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--color-text-muted);font-size:var(--text-xs)">No audit events recorded yet.</td></tr>')
   + '</tbody></table></div></div>';
 }
 
@@ -11118,10 +11158,10 @@ function downloadReceiptFile(rc, billId, payer, amount){
 }
 
 function exportAuditTrail(){
-  var rows = [['Timestamp','User','Action','Module','Details']];
+  var rows = [['Timestamp','User','Action','Module','IP Address','Details']];
   var log = (typeof AUDIT_LOG!=='undefined') ? AUDIT_LOG : [];
   if(log.length){
-    log.forEach(function(a){ rows.push([a.timestamp,a.actor,a.action,a.module,a.details]); });
+    log.forEach(function(a){ rows.push([a.timestamp,a.actor,a.action,a.module,a.ipAddress||'unknown',a.details]); });
   } else {
     rows.push(['No audit events recorded yet','','','','']);
   }
@@ -14859,6 +14899,7 @@ function logAudit(action, module, details){
     id: 'AUD-'+String(AUDIT_LOG.length+1).padStart(6,'0'),
     timestamp: new Date().toLocaleString('en-KE'),
     actor: (typeof currentUser!=='undefined' && currentUser) ? currentUser.name : 'System',
+    ipAddress: getClientIpAddress(),
     action: action, module: module, details: details,
   });
 }
@@ -15000,6 +15041,51 @@ function detectDuplicateCharges(payerName){
   return dupes;
 }
 
+function supportDisplayTimestamp(value){
+  if(!value) return '—';
+  var dt = new Date(value);
+  if(!Number.isNaN(dt.getTime())) return dt.toLocaleString('en-KE');
+  return String(value);
+}
+
+function supportAssignedLabel(ticket){
+  var roleLabel = roles[ticket.assignedRole] ? roles[ticket.assignedRole].label : ticket.assignedRole;
+  if(ticket.assignedTo) return (roleLabel ? roleLabel+' — ' : '') + ticket.assignedTo;
+  return roleLabel || 'Unassigned queue';
+}
+
+async function supportCreateTicketBackend(ticket){
+  const token = getBackendToken();
+  if(!token) return null;
+  const response = await fetch('/api/support/tickets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ ticket: ticket }),
+  });
+  if(!response.ok){
+    const payload = await response.json().catch(function(){ return {}; });
+    throw new Error(payload.error || 'Failed to create support ticket on backend');
+  }
+  const payload = await response.json();
+  return payload.ticket || null;
+}
+
+async function supportUpdateTicketBackend(ticketId, patch){
+  const token = getBackendToken();
+  if(!token) return null;
+  const response = await fetch('/api/support/tickets/'+encodeURIComponent(ticketId), {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify(patch || {}),
+  });
+  if(!response.ok){
+    const payload = await response.json().catch(function(){ return {}; });
+    throw new Error(payload.error || 'Failed to update support ticket on backend');
+  }
+  const payload = await response.json();
+  return payload.ticket || null;
+}
+
 // ── Support ticketing — the controlled hand-off to a human ─────────────
 function createSupportTicket(opts){
   opts = opts || {};
@@ -15023,6 +15109,14 @@ function createSupportTicket(opts){
   };
   SUPPORT_TICKETS.unshift(t);
   logAudit('Support ticket created', 'Customer Support', t.id+' — '+t.subject+' ('+t.category+') → '+(roles[t.assignedRole]?roles[t.assignedRole].label:t.assignedRole));
+  supportCreateTicketBackend(t).then(function(saved){
+    if(!saved) return;
+    var idx = SUPPORT_TICKETS.findIndex(function(x){ return x.id===t.id; });
+    if(idx>-1) SUPPORT_TICKETS[idx] = { ...SUPPORT_TICKETS[idx], ...saved };
+    scheduleStateSync('support-ticket-created');
+  }).catch(function(error){
+    console.warn('Support ticket create sync failed:', error);
+  });
   return t;
 }
 
@@ -15031,25 +15125,43 @@ function ticketAddLog(t, actor, action, note){
   t.updatedAt = new Date().toLocaleString('en-KE');
 }
 
-function forwardTicketToStaff(ticketId, role, note){
+async function forwardTicketToStaff(ticketId, role, note){
   var t = SUPPORT_TICKETS.find(function(x){return x.id===ticketId;});
   if(!t) return;
   t.assignedRole = role || t.assignedRole;
   t.status = 'Escalated';
-  ticketAddLog(t, currentUser?currentUser.name:'CountyCore Assistant', 'Forwarded to staff', note||('Routed to '+(roles[t.assignedRole]?roles[t.assignedRole].label:t.assignedRole)));
+  var logEntry = { actor: currentUser?currentUser.name:'CountyCore Assistant', action:'Forwarded to staff', note: note||('Routed to '+(roles[t.assignedRole]?roles[t.assignedRole].label:t.assignedRole)), timestamp: new Date().toISOString() };
+  ticketAddLog(t, logEntry.actor, logEntry.action, logEntry.note);
+  try {
+    var saved = await supportUpdateTicketBackend(ticketId, { assignedRole: t.assignedRole, status: t.status, logEntry: logEntry });
+    if(saved) Object.assign(t, saved);
+  } catch (error) {
+    showToast('Failed to forward ticket to backend: '+error.message, true);
+    return;
+  }
   logAudit('Ticket escalated','Customer Support', t.id+' forwarded to '+t.assignedRole);
+  scheduleStateSync('support-ticket-forwarded');
   showToast(t.id+' forwarded to '+(roles[t.assignedRole]?roles[t.assignedRole].label:'staff')+'.');
   closeModal();
   navigateTo(appState.page);
 }
 
-function claimTicket(ticketId){
+async function claimTicket(ticketId){
   var t = SUPPORT_TICKETS.find(function(x){return x.id===ticketId;});
   if(!t || !currentUser) return;
   t.assignedTo = currentUser.name;
   t.status = 'In Progress';
-  ticketAddLog(t, currentUser.name, 'Ticket claimed', '');
+  var logEntry = { actor: currentUser.name, action:'Ticket claimed', note:'', timestamp:new Date().toISOString() };
+  ticketAddLog(t, logEntry.actor, logEntry.action, logEntry.note);
+  try {
+    var saved = await supportUpdateTicketBackend(ticketId, { assignedTo: t.assignedTo, status: t.status, assignedRole: t.assignedRole || currentUser.role, logEntry: logEntry });
+    if(saved) Object.assign(t, saved);
+  } catch (error) {
+    showToast('Failed to persist ticket claim: '+error.message, true);
+    return;
+  }
   logAudit('Ticket claimed','Customer Support', t.id+' claimed by '+currentUser.name);
+  scheduleStateSync('support-ticket-claimed');
   showToast(t.id+' assigned to you.');
   closeModal();
   navigateTo(appState.page);
@@ -15068,34 +15180,61 @@ function _supportTicketActionSubmit(ticketId, action){
   else if(action==='reopen') reopenTicket(ticketId, note);
 }
 
-function resolveTicket(ticketId, note){
+async function resolveTicket(ticketId, note){
   var t = SUPPORT_TICKETS.find(function(x){return x.id===ticketId;});
   if(!t) return;
   t.status = 'Resolved';
-  ticketAddLog(t, currentUser?currentUser.name:'CountyCore Assistant', 'Marked resolved', note||'');
+  var logEntry = { actor: currentUser?currentUser.name:'CountyCore Assistant', action:'Marked resolved', note: note||'', timestamp:new Date().toISOString() };
+  ticketAddLog(t, logEntry.actor, logEntry.action, logEntry.note);
+  try {
+    var saved = await supportUpdateTicketBackend(ticketId, { status: t.status, logEntry: logEntry });
+    if(saved) Object.assign(t, saved);
+  } catch (error) {
+    showToast('Failed to persist ticket resolution: '+error.message, true);
+    return;
+  }
   logAudit('Ticket resolved','Customer Support', t.id);
+  scheduleStateSync('support-ticket-resolved');
   showToast(t.id+' marked resolved.');
   closeModal();
   navigateTo(appState.page);
 }
 
-function closeSupportTicket(ticketId, note){
+async function closeSupportTicket(ticketId, note){
   var t = SUPPORT_TICKETS.find(function(x){return x.id===ticketId;});
   if(!t) return;
   t.status = 'Closed';
-  ticketAddLog(t, currentUser?currentUser.name:'CountyCore Assistant', 'Ticket closed', note||'');
+  var logEntry = { actor: currentUser?currentUser.name:'CountyCore Assistant', action:'Ticket closed', note: note||'', timestamp:new Date().toISOString() };
+  ticketAddLog(t, logEntry.actor, logEntry.action, logEntry.note);
+  try {
+    var saved = await supportUpdateTicketBackend(ticketId, { status: t.status, logEntry: logEntry });
+    if(saved) Object.assign(t, saved);
+  } catch (error) {
+    showToast('Failed to persist ticket closure: '+error.message, true);
+    return;
+  }
   logAudit('Ticket closed','Customer Support', t.id);
+  scheduleStateSync('support-ticket-closed');
   showToast(t.id+' closed.');
   closeModal();
   navigateTo(appState.page);
 }
 
-function reopenTicket(ticketId, note){
+async function reopenTicket(ticketId, note){
   var t = SUPPORT_TICKETS.find(function(x){return x.id===ticketId;});
   if(!t) return;
   t.status = 'Open';
-  ticketAddLog(t, currentUser?currentUser.name:'CountyCore Assistant', 'Ticket reopened', note||'');
+  var logEntry = { actor: currentUser?currentUser.name:'CountyCore Assistant', action:'Ticket reopened', note: note||'', timestamp:new Date().toISOString() };
+  ticketAddLog(t, logEntry.actor, logEntry.action, logEntry.note);
+  try {
+    var saved = await supportUpdateTicketBackend(ticketId, { status: t.status, logEntry: logEntry });
+    if(saved) Object.assign(t, saved);
+  } catch (error) {
+    showToast('Failed to persist ticket reopen: '+error.message, true);
+    return;
+  }
   logAudit('Ticket reopened','Customer Support', t.id);
+  scheduleStateSync('support-ticket-reopened');
   showToast(t.id+' reopened.');
   closeModal();
   navigateTo(appState.page);
@@ -15241,7 +15380,7 @@ function botRespond(rawText){
       var tid = (text.match(/TCK-\d+/i)||[])[0];
       var t = tid ? SUPPORT_TICKETS.find(function(x){return x.id.toLowerCase()===tid.toLowerCase();}) : null;
       if(t){
-        html = '<strong>'+t.id+'</strong> — '+t.subject+'<br>Status: <strong>'+t.status+'</strong> · Assigned: '+(roles[t.assignedRole]?roles[t.assignedRole].label:t.assignedRole)+(t.assignedTo?' ('+t.assignedTo+')':'')+'<br>Last update: '+t.updatedAt;
+        html = '<strong>'+t.id+'</strong> — '+t.subject+'<br>Status: <strong>'+t.status+'</strong> · Assigned: '+supportAssignedLabel(t)+'<br>Last update: '+supportDisplayTimestamp(t.updatedAt);
       } else {
         html = 'I couldn\u2019t find that ticket number — double-check it and try again, e.g. TCK-4401.';
       }
@@ -15530,9 +15669,9 @@ function _renderHelpDesk(role){
     + (SUPPORT_TICKETS.length ? SUPPORT_TICKETS.map(function(t){
         return '<tr><td style="font-family:monospace;font-size:11px">'+t.id+'</td><td>'+t.category+'</td><td>'+t.citizenName+'</td>'
           +'<td><span class="badge '+(t.priority==='High'?'error':'info')+'">'+t.priority+'</span></td>'
-          +'<td style="font-size:11px">'+(roles[t.assignedRole]?roles[t.assignedRole].label:t.assignedRole)+(t.assignedTo?' — '+t.assignedTo:'')+'</td>'
+          +'<td style="font-size:11px">'+supportAssignedLabel(t)+'</td>'
           +'<td><span class="badge '+_supportBadgeCls(t.status)+'">'+t.status+'</span></td>'
-          +'<td style="font-size:11px">'+t.updatedAt+'</td>'
+          +'<td style="font-size:11px">'+supportDisplayTimestamp(t.updatedAt)+'</td>'
           +'<td><button class="btn btn-secondary" style="min-height:auto;padding:.4rem .7rem;font-size:11px" onclick="_supportOpenTicketDetail(\''+t.id+'\')">Open</button></td></tr>';
       }).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--color-text-muted);padding:var(--space-4)">No support tickets yet — the chatbot raises these automatically when it can\u2019t resolve something on its own.</td></tr>')
     + '</tbody></table></div></div>'
@@ -15552,7 +15691,7 @@ function _supportOpenTicketDetail(ticketId){
     + '<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Category</div><div>'+t.category+'</div></div>'
     + '<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Channel</div><div>'+t.channel+'</div></div>'
     + '<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Priority</div><div>'+t.priority+'</div></div>'
-    + '<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Assigned To</div><div>'+(roles[t.assignedRole]?roles[t.assignedRole].label:t.assignedRole)+(t.assignedTo?' — '+t.assignedTo:' (unclaimed)')+'</div></div>'
+    + '<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Assigned To</div><div>'+supportAssignedLabel(t)+(t.assignedTo?'':' (unclaimed)')+'</div></div>'
     + '<div><div style="color:var(--color-text-muted);font-size:var(--text-xs)">Status</div><div><span class="badge '+_supportBadgeCls(t.status)+'">'+t.status+'</span></div></div>'
     + '</div>'
     + '<div style="font-size:var(--text-sm);margin-bottom:var(--space-3)">'+(t.description||'—')+(t.linkedRef?'<br><span style="color:var(--color-text-muted);font-size:var(--text-xs)">Linked ref: '+t.linkedRef+'</span>':'')+'</div>'

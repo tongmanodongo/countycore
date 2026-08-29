@@ -535,6 +535,10 @@ function normalizeStore(store) {
   if (!normalized.sessions || typeof normalized.sessions !== "object") normalized.sessions = {};
   if (!Array.isArray(normalized.ledger)) normalized.ledger = [];
   if (!Array.isArray(normalized.audit)) normalized.audit = [];
+  normalized.audit = normalized.audit.map((entry) => {
+    if (!entry || typeof entry !== "object") return { ipAddress: "unknown" };
+    return { ...entry, ipAddress: entry.ipAddress || "unknown" };
+  });
   if (!Array.isArray(normalized.otp)) normalized.otp = [];
   if (!Array.isArray(normalized.notifications)) normalized.notifications = [];
   if (!Array.isArray(normalized.paymentEvents)) normalized.paymentEvents = [];
@@ -948,6 +952,7 @@ function createSession(store, user, ipAddress) {
     user: sessionUser,
     createdAt: now,
     updatedAt: now,
+    ipAddress: ipAddress || "unknown",
   };
   store.sessions[token] = session;
   addAudit(
@@ -1462,6 +1467,7 @@ async function handleApi(req, res, url) {
       user: session.user,
       createdAt: session.createdAt,
       updatedAt: session.updatedAt,
+      ipAddress: session.ipAddress || "unknown",
     });
     return;
   }
@@ -1596,7 +1602,18 @@ async function handleApi(req, res, url) {
   if (url.pathname === "/api/invoices" && req.method === "GET") {
     const session = requireSession(req, res, store);
     if (!session) return;
-    sendJson(res, 200, { invoices: store.invoices || [] });
+    const invoices = (store.invoices || []).map((invoice) => ({
+      id: invoice.id || invoice.invoiceId || `INV-${crypto.randomUUID().slice(0, 8)}`,
+      payer: invoice.payer || invoice.customer || invoice.name || "Unknown taxpayer",
+      pin: invoice.pin || "",
+      stream: invoice.stream || invoice.revType || "General",
+      amount: Number.isFinite(Number(invoice.amount)) ? Number(invoice.amount) : 0,
+      dueDate: invoice.dueDate || invoice.due || new Date().toISOString().slice(0, 10),
+      status: invoice.status || "Issued",
+      description: invoice.description || "",
+      createdAt: invoice.createdAt || new Date().toISOString(),
+    }));
+    sendJson(res, 200, { invoices });
     return;
   }
 
@@ -1732,7 +1749,7 @@ async function handleApi(req, res, url) {
         priority: ticket.priority || "Normal",
         citizenName: ticket.citizenName || "",
         citizenPhone: ticket.citizenPhone || "",
-        assignedRole: ticket.assignedRole || "",
+        assignedRole: ticket.assignedRole || "officer",
         assignedTo: ticket.assignedTo || "",
         createdAt: ticket.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -1758,6 +1775,7 @@ async function handleApi(req, res, url) {
       const idx = (store.supportTickets || []).findIndex((t) => t.id === ticketId);
       if (idx < 0) { sendJson(res, 404, { error: "Ticket not found" }); return; }
       const updated = { ...store.supportTickets[idx], ...body, id: ticketId, updatedAt: new Date().toISOString() };
+      if (!updated.assignedRole) updated.assignedRole = "officer";
       if (body.logEntry) {
         updated.log = [...(store.supportTickets[idx].log || []), body.logEntry];
         delete updated.logEntry;
