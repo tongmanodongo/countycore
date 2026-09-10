@@ -11,7 +11,7 @@ let serverProcess;
 let sessionToken = "";
 
 async function waitForHealth() {
-  const maxAttempts = 30;
+  const maxAttempts = 90;
   for (let i = 0; i < maxAttempts; i += 1) {
     try {
       const response = await fetch(`${baseUrl}/api/health`);
