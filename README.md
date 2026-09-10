@@ -23,10 +23,19 @@ App runs on `http://127.0.0.1:3000` by default.
 Copy [`.env.example`](</Users/macbookpro2019/Desktop/Clients/Kisumu/CountyCore - Production/countycore-backend/.env.example>) and set values:
 
 - `MPESA_MODE`, `COOPBANK_MODE`, `NOTIFY_MODE`: `mock` or `live`
+- `SESSION_TTL_MS`: session lifetime in milliseconds; recommended minimum is `28800000` (8 hours)
+- `AUTH_CHALLENGE_TTL_MS`: OTP challenge lifetime in milliseconds; recommended minimum is `300000` (5 minutes)
 - In `live` mode, required credentials must be provided.
 - Webhooks require callback tokens:
   - `MPESA_CALLBACK_TOKEN`
   - `COOPBANK_CALLBACK_TOKEN`
+
+Production hardening notes:
+
+- sessions are invalidated automatically when their TTL passes
+- login OTP challenges are rejected after expiry
+- rate limits are enforced on repeated login attempts
+- DELETE requests are blocked globally to prevent destructive actions
 
 ## API endpoints
 

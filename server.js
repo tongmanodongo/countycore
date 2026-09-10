@@ -4,7 +4,9 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
 const { URL } = require("url");
+const { SERVICE_CATALOG, registerDomainServices, emitDomainEvent } = require("./src/domain/serviceRegistry");
 
 let PrismaClient = null;
 try {
@@ -25,7 +27,11 @@ const HAS_SQL = Boolean(process.env.DATABASE_URL && PrismaClient);
 const prisma = HAS_SQL ? new PrismaClient() : null;
 const RATE_LIMIT_WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60000);
 const RATE_LIMIT_MAX_REQUESTS = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 30);
+const SESSION_TTL_MS = Number(process.env.SESSION_TTL_MS || 8 * 60 * 60 * 1000);
+const AUTH_CHALLENGE_TTL_MS = Number(process.env.AUTH_CHALLENGE_TTL_MS || 5 * 60 * 1000);
 const RATE_LIMIT_BUCKETS = new Map();
+const DOMAIN_SERVICES = registerDomainServices();
+let storeWriteQueue = Promise.resolve();
 
 const CONFIG = {
   mpesa: {
@@ -64,6 +70,15 @@ const CONFIG = {
 
 function hashSecret(value) {
   return crypto.createHash("sha256").update(String(value)).digest("hex");
+}
+
+function hashPassword(value) {
+  return bcrypt.hashSync(String(value), 12);
+}
+
+function verifyPassword(value, hash) {
+  if (!hash) return false;
+  return bcrypt.compareSync(String(value), String(hash));
 }
 
 const RBAC_ROLES = {
@@ -251,7 +266,7 @@ function normalizeAuthUser(user) {
   const rolePolicy = RBAC_ROLES[user.role] || RBAC_ROLES.payer;
   return {
     ...user,
-    passwordHash: user.passwordHash || hashSecret(user.password || ""),
+    passwordHash: user.passwordHash || hashPassword(user.password || ""),
     department: user.department || rolePolicy.department,
     permissions: Array.isArray(user.permissions) ? user.permissions : (rolePolicy.permissions || []),
     scopes: Array.isArray(user.scopes) ? user.scopes : (rolePolicy.scopes || []),
@@ -259,6 +274,43 @@ function normalizeAuthUser(user) {
     canCreate: Array.isArray(user.canCreate) ? user.canCreate : (rolePolicy.canCreate || []),
     roleLabel: user.roleLabel || rolePolicy.label,
   };
+}
+
+async function findAuthUser(identifier) {
+  const normalized = String(identifier || "").trim();
+  if (!normalized) return null;
+
+  if (prisma) {
+    try {
+      const user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { username: normalized },
+            { fullName: normalized },
+            { phone: normalized },
+          ],
+        },
+      });
+      if (user) {
+        return normalizeAuthUser({
+          ...user,
+          id: user.username,
+          name: user.fullName,
+          password: "",
+          passwordHash: user.passwordHash,
+          role: user.role,
+          department: user.department,
+          phone: user.phone,
+          avatar: user.avatar,
+          twoFA: user.twoFactorEnabled,
+        });
+      }
+    } catch (_error) {
+      // fall back to the in-memory demo users below if Prisma is unavailable
+    }
+  }
+
+  return AUTH_USERS[normalized] || Object.values(AUTH_USERS).find((entry) => entry.id === normalized || entry.name === normalized || entry.id.toLowerCase() === normalized.toLowerCase());
 }
 
 const AUTH_USERS = Object.fromEntries(
@@ -439,8 +491,42 @@ const AUTH_USERS = Object.fromEntries(
       phone: "254700000116",
       twoFA: true,
     },
-  }).map(([id, user]) => [id, normalizeAuthUser({ ...user, id })])
+  }).map(([id, user]) => [id, normalizeAuthUser({ ...user, id, passwordHash: hashPassword(user.password) })])
 );
+
+async function seedPrismaUsers() {
+  if (!prisma) return;
+  try {
+    const users = Object.values(AUTH_USERS).map((user) => ({
+      username: String(user.id),
+      passwordHash: user.passwordHash || hashPassword(user.password || ""),
+      fullName: String(user.name || user.id),
+      role: String(user.role || "payer"),
+      department: String(user.department || ""),
+      phone: String(user.phone || ""),
+      avatar: String(user.avatar || ""),
+      twoFactorEnabled: Boolean(user.twoFA),
+    }));
+
+    for (const user of users) {
+      await prisma.user.upsert({
+        where: { username: user.username },
+        update: {
+          passwordHash: user.passwordHash,
+          fullName: user.fullName,
+          role: user.role,
+          department: user.department,
+          phone: user.phone,
+          avatar: user.avatar,
+          twoFactorEnabled: user.twoFactorEnabled,
+        },
+        create: user,
+      });
+    }
+  } catch (error) {
+    console.warn("Prisma user seed skipped:", error.message);
+  }
+}
 
 function ensureStore() {
   if (!fs.existsSync(DATA_DIR)) {
@@ -618,100 +704,105 @@ async function readStore() {
 }
 
 async function writeStore(store) {
-  const normalized = normalizeStore(store);
-  if (normalized.appState && typeof normalized.appState === "object") {
-    normalized.appState.CENTRAL_LEDGER = cloneJson(normalized.ledger || []);
-    normalized.appState.AUDIT_LOG = cloneJson(normalized.audit || []);
-    normalized.appState.permitCompliance = cloneJson(normalized.permitCompliance || {});
-    normalized.appState.customers = cloneJson(normalized.customers || []);
-    normalized.appState.invoices = cloneJson(normalized.invoices || []);
-    normalized.appState.parcels = cloneJson(normalized.parcels || []);
-    normalized.appState.markets = cloneJson(normalized.markets || []);
-    normalized.appState.revenueStreams = cloneJson(normalized.revenueStreams || []);
-  } else {
-    normalized.appState = {
-      permitCompliance: cloneJson(normalized.permitCompliance || {}),
-      customers: cloneJson(normalized.customers || []),
-      invoices: cloneJson(normalized.invoices || []),
-      parcels: cloneJson(normalized.parcels || []),
-      markets: cloneJson(normalized.markets || []),
-      revenueStreams: cloneJson(normalized.revenueStreams || []),
-    };
-  }
-
-  if (prisma) {
-    try {
-      await prisma.$transaction([
-        prisma.sessionRecord.deleteMany({}),
-        prisma.ledgerRecord.deleteMany({}),
-        prisma.auditRecord.deleteMany({}),
-        prisma.otpRecord.deleteMany({}),
-        prisma.notificationRecord.deleteMany({}),
-        prisma.paymentEventRecord.deleteMany({}),
-        prisma.authChallengeRecord.deleteMany({}),
-        prisma.appStateRecord.upsert({
-          where: { id: 1 },
-          create: { id: 1, payload: normalized.appState },
-          update: { payload: normalized.appState },
-        }),
-        ...(normalized.sessions && Object.keys(normalized.sessions).length
-          ? Object.entries(normalized.sessions).map(([token, payload]) =>
-              prisma.sessionRecord.create({
-                data: { token, payload: toRecordPayload(payload) },
-              })
-            )
-          : []),
-        ...(normalized.ledger && normalized.ledger.length
-          ? normalized.ledger.map((entry) =>
-              prisma.ledgerRecord.create({
-                data: { ledgerId: String(entry.ledgerId || entry.id || `LG-${crypto.randomUUID().slice(0, 8)}`), payload: toRecordPayload(entry) },
-              })
-            )
-          : []),
-        ...(normalized.audit && normalized.audit.length
-          ? normalized.audit.map((entry) =>
-              prisma.auditRecord.create({
-                data: { id: String(entry.id || `AUD-${crypto.randomUUID().slice(0, 8)}`), payload: toRecordPayload(entry) },
-              })
-            )
-          : []),
-        ...(normalized.otp && normalized.otp.length
-          ? normalized.otp.map((entry) =>
-              prisma.otpRecord.create({
-                data: { id: String(entry.id || `OTP-${crypto.randomUUID().slice(0, 8)}`), payload: toRecordPayload(entry) },
-              })
-            )
-          : []),
-        ...(normalized.notifications && normalized.notifications.length
-          ? normalized.notifications.map((entry) =>
-              prisma.notificationRecord.create({
-                data: { id: String(entry.id || `NTF-${crypto.randomUUID().slice(0, 8)}`), payload: toRecordPayload(entry) },
-              })
-            )
-          : []),
-        ...(normalized.paymentEvents && normalized.paymentEvents.length
-          ? normalized.paymentEvents.map((entry) =>
-              prisma.paymentEventRecord.create({
-                data: { id: String(entry.id || `PAY-${crypto.randomUUID().slice(0, 8)}`), payload: toRecordPayload(entry) },
-              })
-            )
-          : []),
-        ...(normalized.authChallenges && normalized.authChallenges.length
-          ? normalized.authChallenges.map((entry) =>
-              prisma.authChallengeRecord.create({
-                data: { challengeId: String(entry.challengeId || `AUTH-${crypto.randomUUID().slice(0, 8)}`), payload: toRecordPayload(entry) },
-              })
-            )
-          : []),
-      ]);
-      return;
-    } catch (error) {
-      console.warn("Prisma database unavailable, writing to JSON store fallback:", error.message);
+  const persist = async () => {
+    const normalized = normalizeStore(store);
+    if (normalized.appState && typeof normalized.appState === "object") {
+      normalized.appState.CENTRAL_LEDGER = cloneJson(normalized.ledger || []);
+      normalized.appState.AUDIT_LOG = cloneJson(normalized.audit || []);
+      normalized.appState.permitCompliance = cloneJson(normalized.permitCompliance || {});
+      normalized.appState.customers = cloneJson(normalized.customers || []);
+      normalized.appState.invoices = cloneJson(normalized.invoices || []);
+      normalized.appState.parcels = cloneJson(normalized.parcels || []);
+      normalized.appState.markets = cloneJson(normalized.markets || []);
+      normalized.appState.revenueStreams = cloneJson(normalized.revenueStreams || []);
+    } else {
+      normalized.appState = {
+        permitCompliance: cloneJson(normalized.permitCompliance || {}),
+        customers: cloneJson(normalized.customers || []),
+        invoices: cloneJson(normalized.invoices || []),
+        parcels: cloneJson(normalized.parcels || []),
+        markets: cloneJson(normalized.markets || []),
+        revenueStreams: cloneJson(normalized.revenueStreams || []),
+      };
     }
-  }
 
-  ensureStore();
-  fs.writeFileSync(STORE_FILE, JSON.stringify(normalized, null, 2));
+    if (prisma) {
+      try {
+        await prisma.$transaction([
+          prisma.sessionRecord.deleteMany({}),
+          prisma.ledgerRecord.deleteMany({}),
+          prisma.auditRecord.deleteMany({}),
+          prisma.otpRecord.deleteMany({}),
+          prisma.notificationRecord.deleteMany({}),
+          prisma.paymentEventRecord.deleteMany({}),
+          prisma.authChallengeRecord.deleteMany({}),
+          prisma.appStateRecord.upsert({
+            where: { id: 1 },
+            create: { id: 1, payload: normalized.appState },
+            update: { payload: normalized.appState },
+          }),
+          ...(normalized.sessions && Object.keys(normalized.sessions).length
+            ? Object.entries(normalized.sessions).map(([token, payload]) =>
+                prisma.sessionRecord.create({
+                  data: { token, payload: toRecordPayload(payload) },
+                })
+              )
+            : []),
+          ...(normalized.ledger && normalized.ledger.length
+            ? normalized.ledger.map((entry) =>
+                prisma.ledgerRecord.create({
+                  data: { ledgerId: String(entry.ledgerId || entry.id || `LG-${crypto.randomUUID().slice(0, 8)}`), payload: toRecordPayload(entry) },
+                })
+              )
+            : []),
+          ...(normalized.audit && normalized.audit.length
+            ? normalized.audit.map((entry) =>
+                prisma.auditRecord.create({
+                  data: { id: String(entry.id || `AUD-${crypto.randomUUID().slice(0, 8)}`), payload: toRecordPayload(entry) },
+                })
+              )
+            : []),
+          ...(normalized.otp && normalized.otp.length
+            ? normalized.otp.map((entry) =>
+                prisma.otpRecord.create({
+                  data: { id: String(entry.id || `OTP-${crypto.randomUUID().slice(0, 8)}`), payload: toRecordPayload(entry) },
+                })
+              )
+            : []),
+          ...(normalized.notifications && normalized.notifications.length
+            ? normalized.notifications.map((entry) =>
+                prisma.notificationRecord.create({
+                  data: { id: String(entry.id || `NTF-${crypto.randomUUID().slice(0, 8)}`), payload: toRecordPayload(entry) },
+                })
+              )
+            : []),
+          ...(normalized.paymentEvents && normalized.paymentEvents.length
+            ? normalized.paymentEvents.map((entry) =>
+                prisma.paymentEventRecord.create({
+                  data: { id: String(entry.id || `PAY-${crypto.randomUUID().slice(0, 8)}`), payload: toRecordPayload(entry) },
+                })
+              )
+            : []),
+          ...(normalized.authChallenges && normalized.authChallenges.length
+            ? normalized.authChallenges.map((entry) =>
+                prisma.authChallengeRecord.create({
+                  data: { challengeId: String(entry.challengeId || `AUTH-${crypto.randomUUID().slice(0, 8)}`), payload: toRecordPayload(entry) },
+                })
+              )
+            : []),
+        ]);
+        return;
+      } catch (error) {
+        console.warn("Prisma database unavailable, writing to JSON store fallback:", error.message);
+      }
+    }
+
+    ensureStore();
+    fs.writeFileSync(STORE_FILE, JSON.stringify(normalized, null, 2));
+  };
+
+  storeWriteQueue = storeWriteQueue.then(persist, persist);
+  await storeWriteQueue;
 }
 
 function getOriginHeader(req) {
@@ -768,6 +859,16 @@ function productionReadinessReport() {
       name: "Database layer",
       ok: !(!process.env.DATABASE_URL && !prisma),
       details: process.env.DATABASE_URL ? "DATABASE_URL configured" : "JSON persistence mode active",
+    },
+    {
+      name: "Session security",
+      ok: SESSION_TTL_MS >= 60 * 60 * 1000,
+      details: `SESSION_TTL_MS=${SESSION_TTL_MS}`,
+    },
+    {
+      name: "OTP challenge security",
+      ok: AUTH_CHALLENGE_TTL_MS >= 60 * 1000,
+      details: `AUTH_CHALLENGE_TTL_MS=${AUTH_CHALLENGE_TTL_MS}`,
     },
     {
       name: "M-Pesa integration",
@@ -860,16 +961,33 @@ function getToken(req) {
   return token;
 }
 
+function pruneExpiredSessions(store) {
+  const now = Date.now();
+  for (const [token, session] of Object.entries(store.sessions || {})) {
+    if (!session || !session.expiresAt) continue;
+    if (new Date(session.expiresAt).getTime() <= now) {
+      delete store.sessions[token];
+    }
+  }
+}
+
 function getSession(req, store) {
   const token = getToken(req);
   if (!token) return null;
-  return store.sessions[token] || null;
+  const session = store.sessions[token];
+  if (!session) return null;
+  if (!session.expiresAt || new Date(session.expiresAt).getTime() <= Date.now()) {
+    delete store.sessions[token];
+    return null;
+  }
+  return session;
 }
 
 function requireSession(req, res, store) {
+  pruneExpiredSessions(store);
   const session = getSession(req, store);
   if (!session) {
-    sendJson(res, 401, { error: "Unauthorized" });
+    sendJson(res, 401, { error: "Unauthorized or session expired" });
     return null;
   }
   return session;
@@ -952,6 +1070,7 @@ function createSession(store, user, ipAddress) {
     user: sessionUser,
     createdAt: now,
     updatedAt: now,
+    expiresAt: new Date(Date.now() + SESSION_TTL_MS).toISOString(),
     ipAddress: ipAddress || "unknown",
   };
   store.sessions[token] = session;
@@ -1326,6 +1445,11 @@ async function handleApi(req, res, url) {
       ready: readiness.ready,
       databaseMode: HAS_SQL ? "prisma" : "json",
       databaseConfigured: Boolean(process.env.DATABASE_URL),
+      architecture: {
+        mode: "modular-monolith",
+        microserviceReady: true,
+        domains: Object.keys(DOMAIN_SERVICES),
+      },
       readiness,
       sessions: Object.keys(store.sessions).length,
       ledgerEntries: store.ledger.length,
@@ -1335,6 +1459,16 @@ async function handleApi(req, res, url) {
         coopbankMode: CONFIG.coop.mode,
         notificationsMode: CONFIG.notifications.mode,
       },
+    });
+    return;
+  }
+
+  if (url.pathname === "/api/system/services" && req.method === "GET") {
+    sendJson(res, 200, {
+      architecture: "modular-monolith",
+      mode: "microservice-ready",
+      services: DOMAIN_SERVICES,
+      eventModel: "in-process domain events",
     });
     return;
   }
@@ -1353,9 +1487,8 @@ async function handleApi(req, res, url) {
         return;
       }
 
-      const authUser = AUTH_USERS[identifier] || Object.values(AUTH_USERS).find((entry) => entry.id === identifier || entry.name === identifier || entry.id.toLowerCase() === identifier.toLowerCase());
-      const passwordHash = hashSecret(password);
-      const validPassword = authUser && (authUser.passwordHash === passwordHash || authUser.password === password);
+      const authUser = await findAuthUser(identifier);
+      const validPassword = authUser && (verifyPassword(password, authUser.passwordHash) || authUser.password === password);
       if (!authUser || !validPassword) {
         sendJson(res, 401, { error: "Invalid credentials" });
         return;
@@ -1370,11 +1503,12 @@ async function handleApi(req, res, url) {
 
       const challengeId = `AUTH-${crypto.randomUUID().slice(0, 12)}`;
       const otpCode = generateOtpCode();
+      const challengeLifetimeMs = Math.max(AUTH_CHALLENGE_TTL_MS, CONFIG.notifications.otpTtlSeconds * 1000);
       const expiresAt = new Date(
-        Date.now() + CONFIG.notifications.otpTtlSeconds * 1000
+        Date.now() + challengeLifetimeMs
       ).toISOString();
       const recipient = authUser.phone;
-      const message = `Your CountyCore login OTP is ${otpCode}. It expires in ${CONFIG.notifications.otpTtlSeconds} seconds.`;
+      const message = `Your CountyCore login OTP is ${otpCode}. It expires in ${Math.ceil(challengeLifetimeMs / 1000)} seconds.`;
       const provider = await sendOtpNotification({
         channel: "sms",
         recipient,
@@ -1400,6 +1534,13 @@ async function handleApi(req, res, url) {
         status: provider.status || "queued",
         provider,
         timestamp: new Date().toISOString(),
+      });
+      emitDomainEvent("auth.otp_issued", {
+        challengeId,
+        userId: authUser.id,
+        recipient,
+        expiresAt,
+        service: "auth",
       });
       addAudit(
         store,
@@ -1546,6 +1687,13 @@ async function handleApi(req, res, url) {
       const body = await parseJsonBody(req);
       const entry = parseLedgerEntry(body.entry, session.user.name);
       store.ledger.unshift(entry);
+      emitDomainEvent("ledger.recorded", {
+        module: entry.module,
+        refId: entry.refId,
+        amount: entry.amount,
+        recordedBy: entry.recordedBy,
+        service: "ledger",
+      });
       addAudit(
         store,
         session.user.name,
@@ -2187,6 +2335,12 @@ async function handleApi(req, res, url) {
           "M-Pesa Webhook"
         );
         store.ledger.unshift(entry);
+        emitDomainEvent("payments.mpesa.success", {
+          reference: callback.reference || callback.checkoutRequestId || "N/A",
+          amount: callback.amount,
+          service: "payments",
+          ledgerRefId: entry.refId,
+        });
         addAudit(
           store,
           "M-Pesa Webhook",
@@ -2247,6 +2401,11 @@ async function handleApi(req, res, url) {
         timestamp: new Date().toISOString(),
       };
       store.paymentEvents.unshift(event);
+      emitDomainEvent("payments.coopbank.initiated", {
+        reference: String(body.reference),
+        amount,
+        service: "payments",
+      });
       addAudit(
         store,
         session.user.name,
@@ -2524,6 +2683,12 @@ const server = http.createServer(async (req, res) => {
     sendJson(res, 500, { error: "Internal server error", detail: error.message });
   }
 });
+
+if (prisma) {
+  seedPrismaUsers().catch((error) => {
+    console.warn("Database user seeding failed:", error.message);
+  });
+}
 
 server.listen(PORT, HOST, () => {
   // eslint-disable-next-line no-console
